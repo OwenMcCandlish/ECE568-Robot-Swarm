@@ -2,11 +2,12 @@ import socket
 import struct
 import errno
 
-__all__ = ["JetsonHost", "Esp32Host"]
+__all__ = ["JetsonNetwork", "Esp32Network"]
 
 Cords = tuple[int, int]
 
 class Packet:
+    """Abstraction for a packet sent over the network"""
     # Constants
     ACK_MASK = 0b1000_0000
     ACK_POS  = 7
@@ -28,6 +29,7 @@ class Packet:
         self.data = data
 
     def encode(self) -> bytes:
+        """Encodes a packet into a raw string of bytes"""
         header_byte = bytes([
             ((self.id << self.ID_POS) & self.ID_MASK) |
             ((self.ack << self.ACK_POS) & self.ACK_MASK) |
@@ -42,6 +44,7 @@ class Packet:
         return header_byte + data_bytes
 
     def decode(self, raw_packet: bytes, just_header: bool = False):
+        """Decodes a raw string of bytes into the packet"""
         header = raw_packet[0]
         self.ack = bool(header & self.ACK_MASK)
         self.id = (header & self.ID_MASK) >> self.ID_POS
@@ -56,7 +59,8 @@ class Packet:
             self.data: list[Cords] = [(raw_data[i], raw_data[i+1]) for i in range(0, len(raw_data), 2)]
         return self
 
-class JetsonHost:
+class JetsonNetwork:
+    """Network class for the Jetson"""
     # Jetson network parameters
     SSID: str = "jetson"
     PWD: str = "12345"
@@ -70,6 +74,7 @@ class JetsonHost:
         self.soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def start(self, num_devices: int = NUM_DEVICES, ip: str = IP, port: int = PORT):
+        """Starts the network interface. Call this prior to calling any other method."""
         self.soc.bind((ip, port))
         self.soc.listen(num_devices)
 
@@ -81,6 +86,7 @@ class JetsonHost:
             self.devices[packet.id] = conn
 
     def send(self, id: int, data: list[Cords]):
+        """Sends a packet to the Esp32 with 'id' with the data specified by 'data'"""
         if (id not in self.devices):
             raise ConnectionError(f"Device Id={id} not connected.")
         packet = Packet(length=len(data), data=data)
@@ -91,7 +97,8 @@ class JetsonHost:
         for soc in self.devices.values():
             soc.close()
 
-class Esp32Host:
+class Esp32Network:
+    """Represents the netork interface for the Esp32"""
     # Jetson network parameters
     SSID: str = "jetson"
     PWD: str = "12345"
@@ -105,6 +112,7 @@ class Esp32Host:
         self.queue = bytearray()
 
     def start(self, ip: str = IP, port: int = PORT):
+        """Starts the interface. Call this before any other method."""
         self.soc.connect((ip, port))
         self.soc.sendall(Packet(id=self.id).encode())
 
@@ -117,10 +125,12 @@ class Esp32Host:
         self.soc.setblocking(False) # make non-blocking to allow polling later
 
     def send(self, data: list[Cords]) -> None:
+        """Sends a packet with 'data' to the central Jetson Controller"""
         packet = Packet(length=len(data), data=data)
         self.soc.sendall(packet.encode())
 
     def poll(self) -> bool:
+        """Returns true if there is a packet in the receiving queue."""
         try:
             chunk = self.soc.recv(256)
             if chunk:
@@ -140,6 +150,7 @@ class Esp32Host:
 
 
     def recv(self) -> Packet | None:
+        """Returns a packet of data from the Jetson or None if no packet is in the receive queue"""
         if (not self.poll()):
             return None
 
