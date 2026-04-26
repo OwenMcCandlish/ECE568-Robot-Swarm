@@ -28,7 +28,7 @@ def main():
             desired_path = path_planner.get_next_waypoints(i, cur_loc)
             next_loc = desired_path[-1] # send the last point in the desired path
 
-            network.send(i, data=[cur_loc, next_loc], yaw=cur_headings[i])
+            network.send(i, data=[[cur_heading, 0], cur_loc, next_loc])
         time.sleep(0.20) # Jetson refresh rate
 
 if __name__ == "__main__":
