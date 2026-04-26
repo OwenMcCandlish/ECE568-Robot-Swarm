@@ -22,10 +22,22 @@ INTERVAL                    = 0.1                                       # second
 
 MAX_E                       = 20 * MAX_V * INTERVAL                     # Distance in which we start slowing down
 
+NET_TIMEOUT                 = 2                                         # time to assume net fail & and stop bot
 
 NUM_DEVICES = 3
 END_POINT = (0, 0) # TODO
 
+# ROBOT START, END POINTS
+R0_START = [10,10]
+R0_END      = [90,90]
+
+R1_START = [5,5]
+R1_END      = [85,85]
+
+R2_START = [0,0]
+R2_END      = [80,80]
+
+DC_SCALE = 3                    # convert pwm percent to a velocity in cm/sec
 
 # Jetson Parameters
 SSID: str = "jetson" # TODO
