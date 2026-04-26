@@ -26,12 +26,12 @@ class pid_speed_controller():
         self.goal_pos = None
 
     #########################################################################################################
-    # CALCULATE_DISTANCE: 
+    # CALCULATE_DISTANCE:
     def distance(self, point1, point2):
         delta_y = (point1[1] - point2[1])
         delta_x = (point1[0] - point2[0])
-        dist = math.sqrt(delta_x**2 + delta_y**2) 
-        return dist 
+        dist = math.sqrt(delta_x**2 + delta_y**2)
+        return dist
 
     #########################################################################################################
     # PID_CALCULATE: return V
@@ -64,7 +64,7 @@ class pid_speed_controller():
         # use the PID parameters to get the current V value
         V = (e * self.PID[0]) + (e_sum * self.PID[1]) + (e_1 * self.PID[2])
 
-        # limit the V appropriately 
+        # limit the V appropriately
         if V > self.v_max:
             V = self.v_max
         if V < - self.v_max:

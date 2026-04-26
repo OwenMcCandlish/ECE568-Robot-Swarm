@@ -56,7 +56,7 @@ def template3():
 """
     Task 4: Plan Paths
     Lead: Joshua
-    Requires:  
+    Requires:
                 start   <list>          x,y coordinates of the leader's current position
                 end     <list>          x,y coordinates of the leader's ending point
                 f1      <list>          x,y coordinates of follower one's position
@@ -76,7 +76,7 @@ def plan_paths(start, end, f1, f2) -> list:
     p_lead  = create_one_path( np.array(start), np.array(end)   )
     p_f1    = create_one_path(np.array(f1), np.array(start)) + p_lead[1:-config.FOLLOW_DIST_PIXEL]
     p_f2    = create_one_path(np.array(f2), np.array(f1)) + p_f1[1:-config.FOLLOW_DIST_PIXEL]
-    PATHS   = [p_lead, p_f1, p_f2] 
+    PATHS   = [p_lead, p_f1, p_f2]
     return PATHS
 
 # End Task 4
@@ -94,7 +94,7 @@ def get_next_waypoints(bot_id, bot_pos):
     bot_pos_arr = np.array(bot_pos)
     distances = np.linalg.norm(waypoints_arr - bot_pos_arr, axis=1)
     closest_index = np.argmin(distances)
-    
+
     if (len(PATHS[bot_id]) - 1) - closest_index > 5 :
         return PATHS[bot_id][closest_index: closest_index + 5]
     else:

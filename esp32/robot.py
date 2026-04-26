@@ -12,7 +12,7 @@ PID_CONTROLLER = pid_speed_controller()
 ##################################################################################
 """
     Task 1: Initialize Hardware
-    Lead: 
+    Lead:
 """
 
 def template1():
@@ -26,7 +26,7 @@ def template1():
 ##################################################################################
 """
     Task 2: Initialize IMU/Compass
-    Lead: 
+    Lead:
 """
 
 def template2():
@@ -95,7 +95,7 @@ def template4():
 """
     Task: Calculate Headings
     Lead: Joshua
-    Requires:  
+    Requires:
                 pos         <list>          x,y coordinates of the bot's current position
                 goal        <list>          x,y coordinates of the bot's goal endpoints
                 orientation <float>         orientation in radians
@@ -124,12 +124,12 @@ def set_speed_limits(v, w):
 def calculate_headings(pos, goal, orientation):
     dx = pos[0] - goal[0]
     dy = pos[1] - goal[1]
-    l = math.sqrt( (dx**2) + (dy**2) )     
+    l = math.sqrt( (dx**2) + (dy**2) )
 
     theta_line = math.atan2(dy,dx)
     theta_offset = theta_line - orientation
 
-    if ( abs(l * math.sin(theta_offset)) < 0.01 ): 
+    if ( abs(l * math.sin(theta_offset)) < 0.01 ):
         w = 0.0
     else:
         w = -(2 * v_limit * math.sin(theta_offset)) / l
@@ -147,7 +147,7 @@ def calculate_headings(pos, goal, orientation):
 ##################################################################################
 """
     Task 6: Calculate Actuator Duty Cycles
-    Lead: 
+    Lead:
 """
 
 def template6():

@@ -17,7 +17,7 @@ def test_plan_paths():
     print(f"path follower 1:\n{paths[1]}")
     print(f"path follower 2:\n{paths[2]}")
     print("\n\n")
-    
+
 
 ##########################################################################################################
 # Test get_next_waypoints
@@ -28,7 +28,7 @@ def test_get_next_waypoints():
     start = [10,10] # lead
     f1 = [5,5]      # follower 1
     f2 = [0,0]      # follower 2
-    
+
     PATHS = plan_paths(start, end, f1, f2)
 
     #################################################################
@@ -52,7 +52,7 @@ def test_get_next_waypoints():
     print(f"Second five for follower 1: {wp}")
 
     wp = get_next_waypoints(2, PATHS[2][5])
-    print(f"Second five for follower 2: {wp}") 
+    print(f"Second five for follower 2: {wp}")
     print("\n\n")
 
     #################################################################
@@ -91,7 +91,7 @@ def test_get_next_waypoints():
     print(f"Last three for follower 2: {wp}")
     print("\n\n")
 
-   
+
 
 # End Task 5
 ##########################################################################################################
