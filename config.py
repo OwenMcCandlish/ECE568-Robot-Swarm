@@ -21,3 +21,12 @@ LOOKAHEAD_LEN               = 5                                         # waypoi
 INTERVAL                    = 0.1                                       # seconds per interval
 
 MAX_E                       = 20 * MAX_V * INTERVAL                     # Distance in which we start slowing down
+
+
+NUM_DEVICES = 3
+END_POINT = (0, 0) # TODO
+
+
+# Jetson Parameters
+SSID: str = "jetson" # TODO
+PWD: str = "12345"    # TODO
