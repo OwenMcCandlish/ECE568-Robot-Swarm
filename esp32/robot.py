@@ -3,6 +3,7 @@
 from time import sleep
 import math
 from pid import pid_speed_controller
+import config
 
 ##################################################################################
 # Globals
@@ -40,12 +41,13 @@ class robot():
         theta_line = math.atan2(dy,dx)
         theta_offset = theta_line - orientation
 
+        v_limit = self.pid.pid_calculate(pos)
+
         if ( abs(l * math.sin(theta_offset)) < 0.01 ):
             w = 0.0
         else:
             w = -(2 * v_limit * math.sin(theta_offset)) / l
 
-        v_limit = self.pid.pid_calculate(pos)
         v, w = self.set_w_speed_limit(v_limit, w)
         return v, w
 

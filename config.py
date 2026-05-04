@@ -42,3 +42,4 @@ DC_SCALE = 3                    # convert pwm percent to a velocity in cm/sec
 # Jetson Parameters
 SSID: str = "jetson" # TODO
 PWD: str = "12345"    # TODO
+PI_IP = "192.168.1.100" # TODO: SET TO RASPBERRY PI IP ADDRESS

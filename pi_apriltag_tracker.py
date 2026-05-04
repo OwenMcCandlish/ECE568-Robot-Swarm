@@ -7,220 +7,328 @@ import time
 import csv
 import os
 
-# =========================
-# Configuration
-# =========================
-TAG_FAMILY = "tag36h11"
-SMOOTHING_ALPHA = 0.2
-ARROW_LENGTH = 50
-CSV_FILE = "apriltag_log.csv"
-
-FRAME_WIDTH = 640
-FRAME_HEIGHT = 480
-
-# =========================
-# AprilTag detector
-# =========================
-detector = Detector(
-    families=TAG_FAMILY,
-    nthreads=1,
-    quad_decimate=1.0,
-    quad_sigma=0.0,
-    refine_edges=1,
-    decode_sharpening=0.25
-)
-
-# =========================
-# Raspberry Pi Camera setup
-# =========================
-picam2 = Picamera2()
-
-config = picam2.create_preview_configuration(
-    main={
-        "size": (FRAME_WIDTH, FRAME_HEIGHT),
-        "format": "RGB888"
-    }
-)
-
-picam2.configure(config)
-picam2.start()
-time.sleep(1)
-
-# =========================
-# CSV setup
-# =========================
-csv_exists = os.path.exists(CSV_FILE)
-csv_file = open(CSV_FILE, mode="a", newline="")
-csv_writer = csv.writer(csv_file)
-
-if not csv_exists:
-    csv_writer.writerow(["timestamp", "tag_id", "x_px", "y_px", "heading_deg"])
-
-# =========================
-# State for smoothing
-# =========================
-smoothed_states = {}
-
-def smooth_angle_deg(old_deg, new_deg, alpha):
-    """
-    Smooth angle properly around wraparound boundaries like 179 -> -179.
-    """
-    old_rad = math.radians(old_deg)
-    new_rad = math.radians(new_deg)
-
-    old_x, old_y = math.cos(old_rad), math.sin(old_rad)
-    new_x, new_y = math.cos(new_rad), math.sin(new_rad)
-
-    blended_x = (1 - alpha) * old_x + alpha * new_x
-    blended_y = (1 - alpha) * old_y + alpha * new_y
-
-    return math.degrees(math.atan2(blended_y, blended_x))
-
 try:
-    while True:
-        # Picamera2 gives RGB frame
-        frame_rgb = picam2.capture_array()
+    import config
+except ImportError:
+    config = None
 
-        # AprilTag detection works on grayscale
+# =========================
+# Vision Class for Integration
+# =========================
+class Vision:
+    def __init__(self):
+        self.TAG_FAMILY = "tag36h11"
+        self.SMOOTHING_ALPHA = 0.2
+        self.FRAME_WIDTH = 640
+        self.FRAME_HEIGHT = 480
+        
+        self.detector = Detector(
+            families=self.TAG_FAMILY,
+            nthreads=1,
+            quad_decimate=1.0,
+            quad_sigma=0.0,
+            refine_edges=1,
+            decode_sharpening=0.25
+        )
+        
+        self.picam2 = Picamera2()
+        cfg = self.picam2.create_preview_configuration(
+            main={
+                "size": (self.FRAME_WIDTH, self.FRAME_HEIGHT),
+                "format": "RGB888"
+            }
+        )
+        self.picam2.configure(cfg)
+        self.picam2.start()
+        time.sleep(1) # Warm up
+        
+        self.smoothed_states = {}
+
+    def _smooth_angle_deg(self, old_deg, new_deg, alpha):
+        old_rad = math.radians(old_deg)
+        new_rad = math.radians(new_deg)
+
+        old_x, old_y = math.cos(old_rad), math.sin(old_rad)
+        new_x, new_y = math.cos(new_rad), math.sin(new_rad)
+
+        blended_x = (1 - alpha) * old_x + alpha * new_x
+        blended_y = (1 - alpha) * old_y + alpha * new_y
+
+        return math.degrees(math.atan2(blended_y, blended_x))
+
+    def locate_robots(self) -> tuple[list[tuple[int, int]], list[int]]:
+        frame_rgb = self.picam2.capture_array()
         gray = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
-
-        # Convert RGB to BGR only for OpenCV display/drawing colors
-        frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
-
-        results = detector.detect(gray)
-
+        
+        results = self.detector.detect(gray)
         robots_raw = {}
-        robots_smoothed = {}
-
-        timestamp = time.time()
-
+        
         for r in results:
-            corners = r.corners
-            center = r.center
             tag_id = r.tag_id
-
-            corners_int = corners.astype(int)
-            center_int = tuple(center.astype(int))
-
-            # Draw tag box
-            for i in range(4):
-                pt1 = tuple(corners_int[i])
-                pt2 = tuple(corners_int[(i + 1) % 4])
-                cv2.line(frame, pt1, pt2, (255, 0, 0), 2)
-
-            # Draw corner points
-            for pt in corners_int:
-                cv2.circle(frame, tuple(pt), 5, (0, 255, 0), -1)
-
-            # Draw center
-            cv2.circle(frame, center_int, 6, (0, 0, 255), -1)
-
-            # Orientation from corner 0 -> corner 1
+            center = r.center
+            corners = r.corners
+            
             dx = corners[1][0] - corners[0][0]
             dy = corners[1][1] - corners[0][1]
             angle_rad = math.atan2(dy, dx)
             angle_deg = math.degrees(angle_rad)
-
+            
             robots_raw[tag_id] = {
                 "x_px": float(center[0]),
                 "y_px": float(center[1]),
                 "heading_deg": float(angle_deg)
             }
-
-            # Apply smoothing
-            if tag_id not in smoothed_states:
-                smoothed_states[tag_id] = robots_raw[tag_id].copy()
+            
+            if tag_id not in self.smoothed_states:
+                self.smoothed_states[tag_id] = robots_raw[tag_id].copy()
             else:
-                smoothed_states[tag_id]["x_px"] = (
-                    (1 - SMOOTHING_ALPHA) * smoothed_states[tag_id]["x_px"]
-                    + SMOOTHING_ALPHA * robots_raw[tag_id]["x_px"]
+                self.smoothed_states[tag_id]["x_px"] = (
+                    (1 - self.SMOOTHING_ALPHA) * self.smoothed_states[tag_id]["x_px"]
+                    + self.SMOOTHING_ALPHA * robots_raw[tag_id]["x_px"]
                 )
-                smoothed_states[tag_id]["y_px"] = (
-                    (1 - SMOOTHING_ALPHA) * smoothed_states[tag_id]["y_px"]
-                    + SMOOTHING_ALPHA * robots_raw[tag_id]["y_px"]
+                self.smoothed_states[tag_id]["y_px"] = (
+                    (1 - self.SMOOTHING_ALPHA) * self.smoothed_states[tag_id]["y_px"]
+                    + self.SMOOTHING_ALPHA * robots_raw[tag_id]["y_px"]
                 )
-                smoothed_states[tag_id]["heading_deg"] = smooth_angle_deg(
-                    smoothed_states[tag_id]["heading_deg"],
+                self.smoothed_states[tag_id]["heading_deg"] = self._smooth_angle_deg(
+                    self.smoothed_states[tag_id]["heading_deg"],
                     robots_raw[tag_id]["heading_deg"],
-                    SMOOTHING_ALPHA
+                    self.SMOOTHING_ALPHA
                 )
 
-            robots_smoothed[tag_id] = smoothed_states[tag_id].copy()
+        cur_locs = []
+        cur_headings = []
+        
+        # We need config.NUM_DEVICES robots
+        num_devices = config.NUM_DEVICES if config else 3
+        
+        for i in range(num_devices):
+            if i in self.smoothed_states:
+                x = int(self.smoothed_states[i]["x_px"])
+                y = int(self.smoothed_states[i]["y_px"])
+                h = int(self.smoothed_states[i]["heading_deg"])
+                cur_locs.append((x, y))
+                cur_headings.append(h)
+            else:
+                # Fallback if the robot hasn't been seen yet
+                cur_locs.append((0, 0))
+                cur_headings.append(0)
+                
+        return cur_locs, cur_headings
 
-            sx = robots_smoothed[tag_id]["x_px"]
-            sy = robots_smoothed[tag_id]["y_px"]
-            sa = robots_smoothed[tag_id]["heading_deg"]
-            sa_rad = math.radians(sa)
+    def close(self):
+        self.picam2.stop()
 
-            # Draw heading arrow
-            end_x = int(sx + ARROW_LENGTH * math.cos(sa_rad))
-            end_y = int(sy + ARROW_LENGTH * math.sin(sa_rad))
 
-            cv2.arrowedLine(
-                frame,
-                (int(sx), int(sy)),
-                (end_x, end_y),
-                (0, 255, 255),
-                2,
-                tipLength=0.25
-            )
+# =========================
+# Standalone Debug Tracker
+# =========================
+def run_standalone():
+    # Configuration
+    TAG_FAMILY = "tag36h11"
+    SMOOTHING_ALPHA = 0.2
+    ARROW_LENGTH = 50
+    CSV_FILE = "apriltag_log.csv"
 
-            # Draw text
-            text1 = f"ID:{tag_id}"
-            text2 = f"X:{sx:.1f} Y:{sy:.1f}"
-            text3 = f"A:{sa:.1f} deg"
+    FRAME_WIDTH = 640
+    FRAME_HEIGHT = 480
 
-            cv2.putText(
-                frame,
-                text1,
-                (center_int[0] + 10, center_int[1] - 25),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.55,
-                (0, 0, 255),
-                2
-            )
+    # AprilTag detector
+    detector = Detector(
+        families=TAG_FAMILY,
+        nthreads=1,
+        quad_decimate=1.0,
+        quad_sigma=0.0,
+        refine_edges=1,
+        decode_sharpening=0.25
+    )
 
-            cv2.putText(
-                frame,
-                text2,
-                (center_int[0] + 10, center_int[1]),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.55,
-                (0, 0, 255),
-                2
-            )
+    # Raspberry Pi Camera setup
+    picam2 = Picamera2()
 
-            cv2.putText(
-                frame,
-                text3,
-                (center_int[0] + 10, center_int[1] + 25),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.55,
-                (0, 0, 255),
-                2
-            )
+    config_cam = picam2.create_preview_configuration(
+        main={
+            "size": (FRAME_WIDTH, FRAME_HEIGHT),
+            "format": "RGB888"
+        }
+    )
 
-            # Log to CSV
-            csv_writer.writerow([
-                timestamp,
-                tag_id,
-                robots_smoothed[tag_id]["x_px"],
-                robots_smoothed[tag_id]["y_px"],
-                robots_smoothed[tag_id]["heading_deg"]
-            ])
+    picam2.configure(config_cam)
+    picam2.start()
+    time.sleep(1)
 
-        csv_file.flush()
+    # CSV setup
+    csv_exists = os.path.exists(CSV_FILE)
+    csv_file = open(CSV_FILE, mode="a", newline="")
+    csv_writer = csv.writer(csv_file)
 
-        if robots_smoothed:
-            print("Robots:", robots_smoothed)
+    if not csv_exists:
+        csv_writer.writerow(["timestamp", "tag_id", "x_px", "y_px", "heading_deg"])
 
-        cv2.imshow("AprilTag Robot Tracker - Raspberry Pi", frame)
+    # State for smoothing
+    smoothed_states = {}
 
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord("q"):
-            break
+    def smooth_angle_deg(old_deg, new_deg, alpha):
+        old_rad = math.radians(old_deg)
+        new_rad = math.radians(new_deg)
 
-finally:
-    picam2.stop()
-    csv_file.close()
-    cv2.destroyAllWindows()
+        old_x, old_y = math.cos(old_rad), math.sin(old_rad)
+        new_x, new_y = math.cos(new_rad), math.sin(new_rad)
+
+        blended_x = (1 - alpha) * old_x + alpha * new_x
+        blended_y = (1 - alpha) * old_y + alpha * new_y
+
+        return math.degrees(math.atan2(blended_y, blended_x))
+
+    try:
+        while True:
+            # Picamera2 gives RGB frame
+            frame_rgb = picam2.capture_array()
+
+            # AprilTag detection works on grayscale
+            gray = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
+
+            # Convert RGB to BGR only for OpenCV display/drawing colors
+            frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+
+            results = detector.detect(gray)
+
+            robots_raw = {}
+            robots_smoothed = {}
+
+            timestamp = time.time()
+
+            for r in results:
+                corners = r.corners
+                center = r.center
+                tag_id = r.tag_id
+
+                corners_int = corners.astype(int)
+                center_int = tuple(center.astype(int))
+
+                # Draw tag box
+                for i in range(4):
+                    pt1 = tuple(corners_int[i])
+                    pt2 = tuple(corners_int[(i + 1) % 4])
+                    cv2.line(frame, pt1, pt2, (255, 0, 0), 2)
+
+                # Draw corner points
+                for pt in corners_int:
+                    cv2.circle(frame, tuple(pt), 5, (0, 255, 0), -1)
+
+                # Draw center
+                cv2.circle(frame, center_int, 6, (0, 0, 255), -1)
+
+                # Orientation from corner 0 -> corner 1
+                dx = corners[1][0] - corners[0][0]
+                dy = corners[1][1] - corners[0][1]
+                angle_rad = math.atan2(dy, dx)
+                angle_deg = math.degrees(angle_rad)
+
+                robots_raw[tag_id] = {
+                    "x_px": float(center[0]),
+                    "y_px": float(center[1]),
+                    "heading_deg": float(angle_deg)
+                }
+
+                # Apply smoothing
+                if tag_id not in smoothed_states:
+                    smoothed_states[tag_id] = robots_raw[tag_id].copy()
+                else:
+                    smoothed_states[tag_id]["x_px"] = (
+                        (1 - SMOOTHING_ALPHA) * smoothed_states[tag_id]["x_px"]
+                        + SMOOTHING_ALPHA * robots_raw[tag_id]["x_px"]
+                    )
+                    smoothed_states[tag_id]["y_px"] = (
+                        (1 - SMOOTHING_ALPHA) * smoothed_states[tag_id]["y_px"]
+                        + SMOOTHING_ALPHA * robots_raw[tag_id]["y_px"]
+                    )
+                    smoothed_states[tag_id]["heading_deg"] = smooth_angle_deg(
+                        smoothed_states[tag_id]["heading_deg"],
+                        robots_raw[tag_id]["heading_deg"],
+                        SMOOTHING_ALPHA
+                    )
+
+                robots_smoothed[tag_id] = smoothed_states[tag_id].copy()
+
+                sx = robots_smoothed[tag_id]["x_px"]
+                sy = robots_smoothed[tag_id]["y_px"]
+                sa = robots_smoothed[tag_id]["heading_deg"]
+                sa_rad = math.radians(sa)
+
+                # Draw heading arrow
+                end_x = int(sx + ARROW_LENGTH * math.cos(sa_rad))
+                end_y = int(sy + ARROW_LENGTH * math.sin(sa_rad))
+
+                cv2.arrowedLine(
+                    frame,
+                    (int(sx), int(sy)),
+                    (end_x, end_y),
+                    (0, 255, 255),
+                    2,
+                    tipLength=0.25
+                )
+
+                # Draw text
+                text1 = f"ID:{tag_id}"
+                text2 = f"X:{sx:.1f} Y:{sy:.1f}"
+                text3 = f"A:{sa:.1f} deg"
+
+                cv2.putText(
+                    frame,
+                    text1,
+                    (center_int[0] + 10, center_int[1] - 25),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55,
+                    (0, 0, 255),
+                    2
+                )
+
+                cv2.putText(
+                    frame,
+                    text2,
+                    (center_int[0] + 10, center_int[1]),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55,
+                    (0, 0, 255),
+                    2
+                )
+
+                cv2.putText(
+                    frame,
+                    text3,
+                    (center_int[0] + 10, center_int[1] + 25),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55,
+                    (0, 0, 255),
+                    2
+                )
+
+                # Log to CSV
+                csv_writer.writerow([
+                    timestamp,
+                    tag_id,
+                    robots_smoothed[tag_id]["x_px"],
+                    robots_smoothed[tag_id]["y_px"],
+                    robots_smoothed[tag_id]["heading_deg"]
+                ])
+
+            csv_file.flush()
+
+            if robots_smoothed:
+                print("Robots:", robots_smoothed)
+
+            cv2.imshow("AprilTag Robot Tracker - Raspberry Pi", frame)
+
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("q"):
+                break
+
+    finally:
+        picam2.stop()
+        csv_file.close()
+        cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    run_standalone()

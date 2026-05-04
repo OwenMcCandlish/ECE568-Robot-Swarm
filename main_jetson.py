@@ -1,6 +1,6 @@
 import time
 
-from jetson.vision import Vision
+from pi_apriltag_tracker import Vision
 from shared.network import JetsonNetwork
 import config
 import jetson.path_planner as path_planner
@@ -19,6 +19,9 @@ def main():
     while (True):
         # get bot positions
         cur_locs, cur_headings = vision.locate_robots()
+
+        # Dynamically update follower target paths based on real-time movements
+        path_planner.update_dynamic_paths(cur_locs, cur_headings)
 
         # send each bot its location and next point
         for i in range(len(cur_locs)):
