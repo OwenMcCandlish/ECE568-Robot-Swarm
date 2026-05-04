@@ -1,9 +1,9 @@
 import time
 
 from pi_apriltag_tracker import Vision
-from shared.network import JetsonNetwork
+from swarm_network import JetsonNetwork
 import config
-import jetson.path_planner as path_planner
+import path_planner
 
 def main():
     network = JetsonNetwork()
