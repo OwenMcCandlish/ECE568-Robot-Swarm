@@ -59,6 +59,8 @@ R2_END   = [80,80]
 DC_SCALE = 3                    
 
 PI_IP = "10.186.106.218"
+WIFI_SSID = "ZOHAIBSINTERNET"
+WIFI_PWD = "Zohaibisbest"
 
 # ----------------- NETWORK -----------------
 class Message:
@@ -328,7 +330,21 @@ elif R_ID == 2:
     START_POINT = R0_START
     END_POINT   = R0_END
 
+def connect_wifi():
+    import network
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        print(f"Connecting to WiFi: {WIFI_SSID}...")
+        wlan.connect(WIFI_SSID, WIFI_PWD)
+        while not wlan.isconnected():
+            time.sleep(0.5)
+            print(".", end="")
+        print()
+    print("WiFi Connected!", wlan.ifconfig())
+
 if __name__ == "__main__":
+    connect_wifi()
     DRIVER = TB6612FNG()
     NET = Esp32Network(R_ID)
     ROBOT = robot(DRIVER, START_POINT, END_POINT)
