@@ -219,7 +219,7 @@ class pid_speed_controller():
         self.prev_time_stamp = time.time()
         self.error_sum = 0
 
-        self.error_dq = deque((), 20)
+        self.error_dq = []
         self.v_max = MAX_V
 
     def distance(self, point1, point2):
@@ -239,6 +239,8 @@ class pid_speed_controller():
 
     def update(self, e, pos):
         self.error_dq.append(e)
+        if len(self.error_dq) > 20:
+            self.error_dq.pop(0)
         self.error_sum = sum(self.error_dq)
         self.prev_position = pos
         self.prev_time_stamp = time.time()
