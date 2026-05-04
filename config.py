@@ -42,4 +42,4 @@ DC_SCALE = 3                    # convert pwm percent to a velocity in cm/sec
 # Jetson Parameters
 SSID: str = "jetson" # TODO
 PWD: str = "12345"    # TODO
-PI_IP = "10.186.106.218" # Raspberry Pi IP Address
+PI_IP = "172.20.10.2" # Raspberry Pi IP Address

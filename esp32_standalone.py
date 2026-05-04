@@ -58,7 +58,7 @@ R2_END   = [80,80]
 
 DC_SCALE = 3                    
 
-PI_IP = "10.186.106.218"
+PI_IP = "172.20.10.2"
 WIFI_SSID = "ZOHAIBSINTERNET"
 WIFI_PWD = "Zohaibisbest"
 
