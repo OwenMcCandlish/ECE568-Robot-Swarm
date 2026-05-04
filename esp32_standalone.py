@@ -45,7 +45,7 @@ MAX_E                       = 20 * MAX_V * INTERVAL
 
 NET_TIMEOUT                 = 2                                         
 NUM_DEVICES                 = 3
-END_POINT                   = (0, 0)
+END_POINT                   = (500, 350)
 
 R0_START = [10,10]
 R0_END   = [90,90]
@@ -284,8 +284,9 @@ class robot():
         return v, w
 
     def calculate_headings(self, pos, goal, orientation):
-        dx = pos[0] - goal[0]
-        dy = pos[1] - goal[1]
+        orientation = math.radians(orientation)
+        dx = goal[0] - pos[0]
+        dy = goal[1] - pos[1]
         l = math.sqrt( (dx**2) + (dy**2) )
 
         theta_line = math.atan2(dy,dx)
@@ -351,7 +352,7 @@ if __name__ == "__main__":
     NET = Esp32Network(R_ID)
     ROBOT = robot(DRIVER, START_POINT, END_POINT)
     
-    SONAR = Ultrasonic(trig_pin=33, echo_pin=32)
+    SONAR = Ultrasonic(trig_pin=4, echo_pin=32)
 
     NET.start()
     last_msg = time.time()

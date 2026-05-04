@@ -27,8 +27,8 @@ if __name__ == "__main__":
     NET = esp_network.Esp32Network(R_ID)
     ROBOT = robot.robot(DRIVER, START_POINT, END_POINT)
     
-    # Initialize Ultrasonic Sensor (Pins 33 & 32 as per ultrasonic.py)
-    SONAR = Ultrasonic(trig_pin=33, echo_pin=32)
+    # Initialize Ultrasonic Sensor (Pins 4 & 32 as per ultrasonic.py)
+    SONAR = Ultrasonic(trig_pin=4, echo_pin=32)
 
     # initialize
     NET.start()
