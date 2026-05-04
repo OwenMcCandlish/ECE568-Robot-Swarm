@@ -13,7 +13,8 @@ def main():
     network.start(config.NUM_DEVICES)
 
     # Create Paths
-    leader, follower1, follower2 = vision.locate_robots()[0]
+    cur_locs, cur_headings = vision.locate_robots()
+    leader, follower1, follower2 = cur_locs
     path_planner.plan_paths(leader, config.END_POINT, follower1, follower2)
 
     while (True):

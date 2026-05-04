@@ -10,7 +10,7 @@ BOT_LENGTH_CM               = 20                                        # bot le
 BOT_LENGTH_PIXEL            = BOT_LENGTH_CM // PIXEL_LENGTH             # bot length in pixels
 BOT_WIDTH_CM                = 10                                        # bot length in cm
 BOT_WIDTH_PIXEL             = BOT_WIDTH_CM // PIXEL_LENGTH              # bot length in pixels
-FOLLOW_DIST_CM              = 10                                        # follow distance in cm
+FOLLOW_DIST_CM              = 30                                        # follow distance in cm
 FOLLOW_DIST_PIXEL           = FOLLOW_DIST_CM // PIXEL_LENGTH            # follow distance in pixels
 
 MAX_V                       = 10                                        # max cm/sec

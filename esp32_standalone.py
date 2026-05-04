@@ -314,6 +314,7 @@ class robot():
         return dc_r, dc_l
 
     def run(self, curr_pos, goal_pos, orientation):
+        self.pid.goal_pos = goal_pos
         v, w = self.calculate_headings(curr_pos, goal_pos, orientation)
         dc_r, dc_l = self.calculate_actuator_speeds(v,w)
         self.driver.set_speeds(dc_r, dc_l)
