@@ -17,8 +17,8 @@ try:
     from collections import deque
 except ImportError:
     class deque:
-        def __init__(self, maxlen=None):
-            self.q = []
+        def __init__(self, iterable=(), maxlen=None):
+            self.q = list(iterable)
             self.maxlen = maxlen
         def append(self, item):
             self.q.append(item)
@@ -219,7 +219,7 @@ class pid_speed_controller():
         self.prev_time_stamp = time.time()
         self.error_sum = 0
 
-        self.error_dq = deque(maxlen=20)
+        self.error_dq = deque((), 20)
         self.v_max = MAX_V
 
     def distance(self, point1, point2):
