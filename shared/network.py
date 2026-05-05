@@ -4,8 +4,6 @@ import errno
 
 __all__ = ["JetsonNetwork", "Esp32Network"]
 
-Cords = tuple[int, int]
-
 class Packet:
     """Abstraction for a packet sent over the network"""
     # Constants
@@ -21,7 +19,7 @@ class Packet:
         ack: bool = False,
         id: int = -1,
         length: int = 0,
-        data: list[Cords] | None = None
+        data = None
     ):
         self.ack = ack
         self.id = id
@@ -56,7 +54,7 @@ class Packet:
             raw_data = struct.unpack(format_str, raw_packet)
 
             # construct a list of cord pairs from a byte stream
-            self.data: list[Cords] = [(raw_data[i], raw_data[i+1]) for i in range(0, len(raw_data), 2)]
+            self.data = [(raw_data[i], raw_data[i+1]) for i in range(0, len(raw_data), 2)]
         return self
 
 class JetsonNetwork:
@@ -65,7 +63,7 @@ class JetsonNetwork:
     SSID: str = "jetson"
     PWD: str = "12345"
     # Server parameters
-    IP: str = "10.42.0.1" # TODO: change this to ip on subnet the Jetson assigns
+    IP: str = "0.0.0.0"
     PORT: int = 60007
     NUM_DEVICES: int = 3
 
@@ -79,13 +77,15 @@ class JetsonNetwork:
         self.soc.listen(num_devices)
 
         while (len(self.devices) < num_devices):
+            print("Waiting on connection...")
             conn, _ = self.soc.accept()
+            print("Accepted Connection")
             raw_resv = conn.recv(128)
             packet = Packet().decode(raw_resv)
             conn.sendall(Packet(ack=True).encode()) # ack
             self.devices[packet.id] = conn
 
-    def send(self, id: int, data: list[Cords]):
+    def send(self, id: int, data):
         """Sends a packet to the Esp32 with 'id' with the data specified by 'data'"""
         if (id not in self.devices):
             raise ConnectionError(f"Device Id={id} not connected.")
@@ -113,18 +113,22 @@ class Esp32Network:
 
     def start(self, ip: str = IP, port: int = PORT):
         """Starts the interface. Call this before any other method."""
+        print("Connecting...")
         self.soc.connect((ip, port))
+        print("Sending init packet..")
         self.soc.sendall(Packet(id=self.id).encode())
 
         got_ack = False
+        print("Waiting on ack..")
         while (not got_ack):
             raw_resv = self.soc.recv(1024)
             packet = Packet().decode(raw_resv)
             if (packet.ack):
                 got_ack = True
+        print("Registered connection")
         self.soc.setblocking(False) # make non-blocking to allow polling later
 
-    def send(self, data: list[Cords]) -> None:
+    def send(self, data) -> None:
         """Sends a packet with 'data' to the central Jetson Controller"""
         packet = Packet(length=len(data), data=data)
         self.soc.sendall(packet.encode())
