@@ -1,3 +1,4 @@
+import numpy as np
 import time
 
 from pi_apriltag_tracker import Vision
@@ -12,10 +13,21 @@ def main():
     # Start Network
     network.start(config.NUM_DEVICES)
 
-    # Create Paths
-    cur_locs, cur_headings = vision.locate_robots()
-    leader, follower1, follower2 = cur_locs
-    path_planner.plan_paths(leader, config.END_POINT, follower1, follower2)
+    # Create leader-only path
+    while True:
+        cur_locs, cur_headings = vision.locate_robots()
+
+        if len(cur_locs) >= 1 and cur_locs[0] != (0, 0):
+            leader = cur_locs[0]
+            break
+
+        print("Waiting for leader tag ID 0...")
+        time.sleep(0.2)
+
+    path_planner.PATHS[0] = path_planner.create_one_path(
+        np.array(leader),
+        np.array(config.END_POINT)
+    )
 
     while (True):
         # get bot positions
@@ -25,7 +37,7 @@ def main():
         path_planner.update_dynamic_paths(cur_locs, cur_headings)
 
         # send each bot its location and next point
-        for i in range(len(cur_locs)):
+        for i in range(1):
             cur_loc: tuple[int, int] = cur_locs[i]
             cur_heading: int = cur_headings[i]
 

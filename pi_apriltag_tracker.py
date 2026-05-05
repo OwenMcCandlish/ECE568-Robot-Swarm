@@ -140,9 +140,20 @@ class Vision:
             bottom_center_y = (corners[0][1] + corners[1][1]) / 2.0
             top_center_x = (corners[3][0] + corners[2][0]) / 2.0
             top_center_y = (corners[3][1] + corners[2][1]) / 2.0
-            
-            dx = top_center_x - bottom_center_x
-            dy = top_center_y - bottom_center_y
+
+            if arena_ready:
+                bottom_world = self._pixel_to_world_cm(bottom_center_x, bottom_center_y)
+                top_world = self._pixel_to_world_cm(top_center_x, top_center_y)
+
+                if bottom_world is None or top_world is None:
+                    continue
+
+                dx = top_world[0] - bottom_world[0]
+                dy = top_world[1] - bottom_world[1]
+            else:
+                dx = top_center_x - bottom_center_x
+                dy = top_center_y - bottom_center_y
+
             angle_rad = math.atan2(dy, dx)
             angle_deg = math.degrees(angle_rad)
             
@@ -346,9 +357,21 @@ def run_standalone():
                 bottom_center_y = (corners[0][1] + corners[1][1]) / 2.0
                 top_center_x = (corners[3][0] + corners[2][0]) / 2.0
                 top_center_y = (corners[3][1] + corners[2][1]) / 2.0
-                
-                dx = top_center_x - bottom_center_x
-                dy = top_center_y - bottom_center_y
+
+                if H_IMAGE_TO_WORLD is not None:
+                    # Convert to world to compute correct angle
+                    bottom_pt = np.array([[[bottom_center_x, bottom_center_y]]], dtype=np.float32)
+                    top_pt = np.array([[[top_center_x, top_center_y]]], dtype=np.float32)
+                    
+                    bottom_world = cv2.perspectiveTransform(bottom_pt, H_IMAGE_TO_WORLD)
+                    top_world = cv2.perspectiveTransform(top_pt, H_IMAGE_TO_WORLD)
+                    
+                    dx = float(top_world[0][0][0]) - float(bottom_world[0][0][0])
+                    dy = float(top_world[0][0][1]) - float(bottom_world[0][0][1])
+                else:
+                    dx = top_center_x - bottom_center_x
+                    dy = top_center_y - bottom_center_y
+
                 angle_rad = math.atan2(dy, dx)
                 angle_deg = math.degrees(angle_rad)
                 
