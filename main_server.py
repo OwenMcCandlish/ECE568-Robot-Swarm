@@ -33,6 +33,11 @@ def main():
         # get bot positions
         cur_locs, cur_headings = vision.locate_robots()
 
+        if len(cur_locs) < 1 or cur_locs[0] == (0, 0):
+            print("Leader tag lost. Not sending command.")
+            time.sleep(0.2)
+            continue
+
         # Dynamically update follower target paths based on real-time movements
         path_planner.update_dynamic_paths(cur_locs, cur_headings)
 
