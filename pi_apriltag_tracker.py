@@ -44,6 +44,18 @@ class Vision:
         
         self.smoothed_states = {}
 
+        self.ARENA_SIZE_CM = 82.0
+
+        self.CORNER_TAG_IDS = {
+            10: "top_left",
+            11: "top_right",
+            12: "bottom_right",
+            13: "bottom_left",
+        }
+
+        self.corner_centers = {}
+        self.H_IMAGE_TO_WORLD = None
+
     def _smooth_angle_deg(self, old_deg, new_deg, alpha):
         old_rad = math.radians(old_deg)
         new_rad = math.radians(new_deg)
@@ -56,6 +68,52 @@ class Vision:
 
         return math.degrees(math.atan2(blended_y, blended_x))
 
+    def _update_arena_homography(self, results):
+        """
+        Uses corner AprilTags 10, 11, 12, 13 to build a pixel-to-cm transform.
+        Arena is 82 cm x 82 cm.
+        """
+        for r in results:
+            if r.tag_id in self.CORNER_TAG_IDS:
+                self.corner_centers[r.tag_id] = np.array(r.center, dtype=np.float32)
+
+        required = [10, 11, 12, 13]
+        if not all(tag_id in self.corner_centers for tag_id in required):
+            self.H_IMAGE_TO_WORLD = None
+            return False
+
+        image_points = np.array([
+            self.corner_centers[10],  # top-left
+            self.corner_centers[11],  # top-right
+            self.corner_centers[12],  # bottom-right
+            self.corner_centers[13],  # bottom-left
+        ], dtype=np.float32)
+
+        world_points = np.array([
+            [0.0, 0.0],
+            [self.ARENA_SIZE_CM, 0.0],
+            [self.ARENA_SIZE_CM, self.ARENA_SIZE_CM],
+            [0.0, self.ARENA_SIZE_CM],
+        ], dtype=np.float32)
+
+        self.H_IMAGE_TO_WORLD, _ = cv2.findHomography(image_points, world_points)
+        return self.H_IMAGE_TO_WORLD is not None
+
+    def _pixel_to_world_cm(self, x_px, y_px):
+        """
+        Converts image pixel coordinate to real arena cm coordinate.
+        """
+        if self.H_IMAGE_TO_WORLD is None:
+            return None
+
+        point = np.array([[[x_px, y_px]]], dtype=np.float32)
+        transformed = cv2.perspectiveTransform(point, self.H_IMAGE_TO_WORLD)
+
+        x_cm = float(transformed[0][0][0])
+        y_cm = float(transformed[0][0][1])
+
+        return x_cm, y_cm
+
     def locate_robots(self) -> tuple[list[tuple[int, int]], list[int]]:
         frame_rgb = self.picam2.capture_array()
         gray = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
@@ -63,8 +121,17 @@ class Vision:
         results = self.detector.detect(gray)
         robots_raw = {}
         
+        arena_ready = self._update_arena_homography(results)
+
+        if not arena_ready:
+            print("Arena corner tags not fully visible. Need IDs 10, 11, 12, 13.")
+        
         for r in results:
             tag_id = r.tag_id
+            
+            if tag_id in self.CORNER_TAG_IDS:
+                continue
+                
             center = r.center
             corners = r.corners
             
@@ -73,9 +140,20 @@ class Vision:
             angle_rad = math.atan2(dy, dx)
             angle_deg = math.degrees(angle_rad)
             
+            if arena_ready:
+                world_pos = self._pixel_to_world_cm(float(center[0]), float(center[1]))
+            
+                if world_pos is None:
+                    continue
+            
+                x_world, y_world = world_pos
+            else:
+                # Fallback: still use pixels if calibration is not ready
+                x_world, y_world = float(center[0]), float(center[1])
+            
             robots_raw[tag_id] = {
-                "x_px": float(center[0]),
-                "y_px": float(center[1]),
+                "x_px": x_world,
+                "y_px": y_world,
                 "heading_deg": float(angle_deg)
             }
             
