@@ -137,58 +137,77 @@ class Ultrasonic:
         return (duration * self.SOUND_SPEED_CM_US) / 2
 
 # ----------------- MOTOR DRIVER -----------------
+AIN1 = 13
+AIN2 = 14
+PWMA = 26
+
+BIN1 = 12
+BIN2 = 27
+PWMB = 25
+
+STBY = 33
+
+
 class Motor:
-    def __init__(self, in1_pin, in2_pin, pwm_pin, freq=1000):
+    def __init__(self, in1_pin, in2_pin, pwm_pin, standby_pin, freq=5000):
         self.in1 = Pin(in1_pin, Pin.OUT)
         self.in2 = Pin(in2_pin, Pin.OUT)
-        self.pwm = PWM(Pin(pwm_pin), freq=freq, duty_u16=0)
+        self.pwm = PWM(Pin(pwm_pin), freq=freq)
+        self.stby = Pin(standby_pin, Pin.OUT)
+        self.stby.value(1)
 
     def run(self, speed):
+        """
+        speed is from -100 to 100 percent.
+        Converts to MicroPython ESP32 PWM duty 0-1023.
+        """
         speed = max(-100, min(100, speed))
-        duty = int(abs(speed) / 100 * 65535)
+        duty = int(abs(speed) / 100 * 1023)
 
         if speed > 0:
-            self.in1.on()
-            self.in2.off()
+            self.in1.value(1)
+            self.in2.value(0)
         elif speed < 0:
-            self.in1.off()
-            self.in2.on()
+            self.in1.value(0)
+            self.in2.value(1)
         else:
-            self._coast()
+            self.stop()
             return
 
-        self.pwm.duty_u16(duty)
-
-    def brake(self):
-        self.in1.on()
-        self.in2.on()
-        self.pwm.duty_u16(65535)
-
-    def _coast(self):
-        self.in1.off()
-        self.in2.off()
-        self.pwm.duty_u16(0)
+        self.pwm.duty(duty)
 
     def stop(self):
-        self._coast()
+        self.in1.value(0)
+        self.in2.value(0)
+        self.pwm.duty(0)
+
+    def brake(self):
+        self.in1.value(1)
+        self.in2.value(1)
+        self.pwm.duty(1023)
 
     def deinit(self):
+        self.stop()
         self.pwm.deinit()
 
+
 class TB6612FNG:
-    def __init__(self, ain1=13, ain2=12, pwma=14, bin1=27, bin2=26, pwmb=25, stby=33, freq=1000):
-        self.stby = Pin(stby, Pin.OUT)
-        self.motor_right = Motor(ain1, ain2, pwma, freq)
-        self.motor_left  = Motor(bin1, bin2, pwmb, freq)
-        self.wake()
+    def __init__(self):
+        self.stby = Pin(STBY, Pin.OUT)
+        self.stby.value(1)
+
+        # Based on your working motor test
+        self.motor_left = Motor(AIN1, AIN2, PWMA, STBY)
+        self.motor_right = Motor(BIN1, BIN2, PWMB, STBY)
 
     def wake(self):
-        self.stby.on()
+        self.stby.value(1)
 
     def standby(self):
-        self.stby.off()
+        self.stby.value(0)
 
     def set_speeds(self, right_speed, left_speed):
+        self.wake()
         self.motor_right.run(right_speed)
         self.motor_left.run(left_speed)
 
@@ -201,6 +220,7 @@ class TB6612FNG:
         self.motor_left.brake()
 
     def deinit(self):
+        self.stop()
         self.standby()
         self.motor_right.deinit()
         self.motor_left.deinit()

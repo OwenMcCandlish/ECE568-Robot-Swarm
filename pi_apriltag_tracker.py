@@ -16,7 +16,7 @@ except ImportError:
 # Vision Class for Integration
 # =========================
 class Vision:
-    def __init__(self):
+    def __init__(self, show_feed=False):
         self.TAG_FAMILY = "tag36h11"
         self.SMOOTHING_ALPHA = 0.2
         self.FRAME_WIDTH = 640
@@ -55,6 +55,9 @@ class Vision:
 
         self.corner_centers = {}
         self.H_IMAGE_TO_WORLD = None
+        
+        self.show_feed = show_feed
+        self.ARROW_LENGTH = 50
 
     def _smooth_angle_deg(self, old_deg, new_deg, alpha):
         old_rad = math.radians(old_deg)
@@ -118,6 +121,8 @@ class Vision:
         frame_rgb = self.picam2.capture_array()
         gray = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
         
+        frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+
         results = self.detector.detect(gray)
         robots_raw = {}
         
@@ -129,11 +134,33 @@ class Vision:
         for r in results:
             tag_id = r.tag_id
             
-            if tag_id in self.CORNER_TAG_IDS:
-                continue
-                
             center = r.center
             corners = r.corners
+
+            corners_int = corners.astype(int)
+            center_int = tuple(center.astype(int))
+
+            # Draw tag outline
+            for j in range(4):
+                pt1 = tuple(corners_int[j])
+                pt2 = tuple(corners_int[(j + 1) % 4])
+                cv2.line(frame, pt1, pt2, (255, 0, 0), 2)
+
+            # Draw tag center
+            cv2.circle(frame, center_int, 6, (0, 0, 255), -1)
+
+            if tag_id in self.CORNER_TAG_IDS:
+                cv2.putText(
+                    frame,
+                    f"Corner {tag_id}",
+                    (center_int[0] + 10, center_int[1] - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55,
+                    (0, 255, 0),
+                    2
+                )
+                continue
+                
             
             # Orientation from bottom-center to top-center
             bottom_center_x = (corners[0][0] + corners[1][0]) / 2.0
@@ -173,6 +200,50 @@ class Vision:
                 "y_px": y_world,
                 "heading_deg": float(angle_deg)
             }
+
+            # Draw heading arrow and robot text
+            sa_rad = math.radians(angle_deg)
+            end_x = int(center_int[0] + self.ARROW_LENGTH * math.cos(sa_rad))
+            end_y = int(center_int[1] + self.ARROW_LENGTH * math.sin(sa_rad))
+
+            cv2.arrowedLine(
+                frame,
+                center_int,
+                (end_x, end_y),
+                (0, 255, 255),
+                2,
+                tipLength=0.25
+            )
+
+            cv2.putText(
+                frame,
+                f"ID:{tag_id}",
+                (center_int[0] + 10, center_int[1] - 25),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (0, 0, 255),
+                2
+            )
+
+            cv2.putText(
+                frame,
+                f"X:{x_world:.1f} Y:{y_world:.1f} cm",
+                (center_int[0] + 10, center_int[1]),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (0, 0, 255),
+                2
+            )
+
+            cv2.putText(
+                frame,
+                f"A:{angle_deg:.1f} deg",
+                (center_int[0] + 10, center_int[1] + 25),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (0, 0, 255),
+                2
+            )
             
             if tag_id not in self.smoothed_states:
                 self.smoothed_states[tag_id] = robots_raw[tag_id].copy()
@@ -208,6 +279,13 @@ class Vision:
                 # Fallback if the robot hasn't been seen yet
                 cur_locs.append((0, 0))
                 cur_headings.append(0)
+        if self.show_feed:
+            cv2.imshow("Swarm Main Server Camera Feed", frame)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("q"):
+                self.close()
+                cv2.destroyAllWindows()
+                raise KeyboardInterrupt
                 
         return cur_locs, cur_headings
 
