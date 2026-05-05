@@ -135,8 +135,14 @@ class Vision:
             center = r.center
             corners = r.corners
             
-            dx = corners[1][0] - corners[0][0]
-            dy = corners[1][1] - corners[0][1]
+            # Orientation from bottom-center to top-center
+            bottom_center_x = (corners[0][0] + corners[1][0]) / 2.0
+            bottom_center_y = (corners[0][1] + corners[1][1]) / 2.0
+            top_center_x = (corners[3][0] + corners[2][0]) / 2.0
+            top_center_y = (corners[3][1] + corners[2][1]) / 2.0
+            
+            dx = top_center_x - bottom_center_x
+            dy = top_center_y - bottom_center_y
             angle_rad = math.atan2(dy, dx)
             angle_deg = math.degrees(angle_rad)
             
@@ -335,9 +341,14 @@ def run_standalone():
                     cv2.putText(frame, f"Corner {tag_id}", (center_int[0] + 10, center_int[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2)
                     continue
 
-                # Orientation from corner 0 -> corner 1
-                dx = corners[1][0] - corners[0][0]
-                dy = corners[1][1] - corners[0][1]
+                # Orientation from bottom-center to top-center
+                bottom_center_x = (corners[0][0] + corners[1][0]) / 2.0
+                bottom_center_y = (corners[0][1] + corners[1][1]) / 2.0
+                top_center_x = (corners[3][0] + corners[2][0]) / 2.0
+                top_center_y = (corners[3][1] + corners[2][1]) / 2.0
+                
+                dx = top_center_x - bottom_center_x
+                dy = top_center_y - bottom_center_y
                 angle_rad = math.atan2(dy, dx)
                 angle_deg = math.degrees(angle_rad)
                 
