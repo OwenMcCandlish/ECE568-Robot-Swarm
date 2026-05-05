@@ -208,6 +208,14 @@ def run_standalone():
     ARROW_LENGTH = 50
     CSV_FILE = "apriltag_log.csv"
 
+    ARENA_SIZE_CM = 82.0
+    CORNER_TAG_IDS = {
+        10: "top_left",
+        11: "top_right",
+        12: "bottom_right",
+        13: "bottom_left",
+    }
+
     FRAME_WIDTH = 640
     FRAME_HEIGHT = 480
 
@@ -245,6 +253,9 @@ def run_standalone():
 
     # State for smoothing
     smoothed_states = {}
+    
+    corner_centers = {}
+    H_IMAGE_TO_WORLD = None
 
     def smooth_angle_deg(old_deg, new_deg, alpha):
         old_rad = math.radians(old_deg)
@@ -270,6 +281,29 @@ def run_standalone():
             frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
             results = detector.detect(gray)
+
+            # --- Homography Update ---
+            for r in results:
+                if r.tag_id in CORNER_TAG_IDS:
+                    corner_centers[r.tag_id] = np.array(r.center, dtype=np.float32)
+
+            required = [10, 11, 12, 13]
+            if all(tag_id in corner_centers for tag_id in required):
+                image_points = np.array([
+                    corner_centers[10],
+                    corner_centers[11],
+                    corner_centers[12],
+                    corner_centers[13],
+                ], dtype=np.float32)
+                world_points = np.array([
+                    [0.0, 0.0],
+                    [ARENA_SIZE_CM, 0.0],
+                    [ARENA_SIZE_CM, ARENA_SIZE_CM],
+                    [0.0, ARENA_SIZE_CM],
+                ], dtype=np.float32)
+                H_IMAGE_TO_WORLD, _ = cv2.findHomography(image_points, world_points)
+            else:
+                H_IMAGE_TO_WORLD = None
 
             robots_raw = {}
             robots_smoothed = {}
@@ -297,15 +331,28 @@ def run_standalone():
                 # Draw center
                 cv2.circle(frame, center_int, 6, (0, 0, 255), -1)
 
+                if tag_id in CORNER_TAG_IDS:
+                    cv2.putText(frame, f"Corner {tag_id}", (center_int[0] + 10, center_int[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2)
+                    continue
+
                 # Orientation from corner 0 -> corner 1
                 dx = corners[1][0] - corners[0][0]
                 dy = corners[1][1] - corners[0][1]
                 angle_rad = math.atan2(dy, dx)
                 angle_deg = math.degrees(angle_rad)
+                
+                if H_IMAGE_TO_WORLD is not None:
+                    point = np.array([[[float(center[0]), float(center[1])]]], dtype=np.float32)
+                    transformed = cv2.perspectiveTransform(point, H_IMAGE_TO_WORLD)
+                    x_val = float(transformed[0][0][0])
+                    y_val = float(transformed[0][0][1])
+                else:
+                    x_val = float(center[0])
+                    y_val = float(center[1])
 
                 robots_raw[tag_id] = {
-                    "x_px": float(center[0]),
-                    "y_px": float(center[1]),
+                    "x_px": x_val,
+                    "y_px": y_val,
                     "heading_deg": float(angle_deg)
                 }
 
