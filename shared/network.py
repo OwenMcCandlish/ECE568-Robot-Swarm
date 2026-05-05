@@ -21,12 +21,12 @@ class Packet:
         ack: bool = False,
         id: int = -1,
         length: int = 0,
-        data: list[Cords] = []
+        data: list[Cords] | None = None
     ):
         self.ack = ack
         self.id = id
         self.length = length
-        self.data = data
+        self.data = data if data is not None else [] # Initialize fresh list
 
     def encode(self) -> bytes:
         """Encodes a packet into a raw string of bytes"""
