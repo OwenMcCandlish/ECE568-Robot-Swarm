@@ -90,10 +90,10 @@ class Vision:
         ], dtype=np.float32)
 
         world_points = np.array([
-            [0.0, 0.0],
-            [self.ARENA_SIZE_CM, 0.0],
-            [self.ARENA_SIZE_CM, self.ARENA_SIZE_CM],
-            [0.0, self.ARENA_SIZE_CM],
+            [0.0, self.ARENA_SIZE_CM],               # 10: top-left -> x=0, y=82
+            [self.ARENA_SIZE_CM, self.ARENA_SIZE_CM],# 11: top-right -> x=82, y=82
+            [self.ARENA_SIZE_CM, 0.0],               # 12: bottom-right -> x=82, y=0
+            [0.0, 0.0],                              # 13: bottom-left -> x=0, y=0
         ], dtype=np.float32)
 
         self.H_IMAGE_TO_WORLD, _ = cv2.findHomography(image_points, world_points)
@@ -296,10 +296,10 @@ def run_standalone():
                     corner_centers[13],
                 ], dtype=np.float32)
                 world_points = np.array([
-                    [0.0, 0.0],
-                    [ARENA_SIZE_CM, 0.0],
-                    [ARENA_SIZE_CM, ARENA_SIZE_CM],
                     [0.0, ARENA_SIZE_CM],
+                    [ARENA_SIZE_CM, ARENA_SIZE_CM],
+                    [ARENA_SIZE_CM, 0.0],
+                    [0.0, 0.0],
                 ], dtype=np.float32)
                 H_IMAGE_TO_WORLD, _ = cv2.findHomography(image_points, world_points)
             else:
@@ -381,13 +381,13 @@ def run_standalone():
                 sa = robots_smoothed[tag_id]["heading_deg"]
                 sa_rad = math.radians(sa)
 
-                # Draw heading arrow
-                end_x = int(sx + ARROW_LENGTH * math.cos(sa_rad))
-                end_y = int(sy + ARROW_LENGTH * math.sin(sa_rad))
+                # Draw heading arrow using image pixel center, not cm coordinates
+                end_x = int(center_int[0] + ARROW_LENGTH * math.cos(sa_rad))
+                end_y = int(center_int[1] + ARROW_LENGTH * math.sin(sa_rad))
 
                 cv2.arrowedLine(
                     frame,
-                    (int(sx), int(sy)),
+                    center_int,
                     (end_x, end_y),
                     (0, 255, 255),
                     2,
@@ -396,7 +396,7 @@ def run_standalone():
 
                 # Draw text
                 text1 = f"ID:{tag_id}"
-                text2 = f"X:{sx:.1f} Y:{sy:.1f}"
+                text2 = f"X:{sx:.1f} Y:{sy:.1f} cm"
                 text3 = f"A:{sa:.1f} deg"
 
                 cv2.putText(
