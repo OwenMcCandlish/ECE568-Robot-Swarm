@@ -81,5 +81,10 @@ class JetsonNetwork:
             msg = json.dumps({"data": data}).encode('utf-8')
             try:
                 self.sock.sendto(msg, self.clients[bot_id])
+                return True
             except Exception as e:
                 print(f"[Network] Error sending to Robot {bot_id}: {e}")
+                return False
+        else:
+            print(f"[Network] Robot {bot_id} not connected yet. Cannot send.")
+            return False

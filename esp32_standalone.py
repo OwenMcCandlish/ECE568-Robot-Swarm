@@ -373,7 +373,7 @@ if __name__ == "__main__":
     NET = Esp32Network(R_ID)
     ROBOT = robot(DRIVER, START_POINT, END_POINT)
     
-    SONAR = Ultrasonic(trig_pin=4, echo_pin=32)
+   # SONAR = Ultrasonic(trig_pin=4, echo_pin=32)
 
     NET.start()
     last_msg = time.time()
@@ -381,13 +381,6 @@ if __name__ == "__main__":
     print(f"Robot {R_ID} Started. Connecting to {PI_IP}...")
 
     while (True):
-        distance = SONAR.get_distance_cm()
-        if distance is not None and distance < 15.0:
-            print(f"Obstacle detected at {distance:.1f}cm! Stopping.")
-            ROBOT.emergency_stop()
-            time.sleep(0.1)
-            continue
-
         if (NET.poll()):
             [yaw, _ ], curr_pos, goal_pos = NET.recv().data
             ROBOT.run(curr_pos, goal_pos, yaw)

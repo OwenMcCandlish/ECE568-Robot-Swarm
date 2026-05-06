@@ -8,7 +8,7 @@ import path_planner
 
 def main():
     network = JetsonNetwork()
-    vision = Vision()
+    vision = Vision(show_feed=True)
 
     # Start Network
     network.start(config.NUM_DEVICES)
@@ -39,7 +39,7 @@ def main():
             continue
 
         # Dynamically update follower target paths based on real-time movements
-        path_planner.update_dynamic_paths(cur_locs, cur_headings)
+        #path_planner.update_dynamic_paths(cur_locs, cur_headings)
 
         # send each bot its location and next point
         for i in range(1):
@@ -49,7 +49,8 @@ def main():
             desired_path = path_planner.get_next_waypoints(i, cur_loc)
             next_loc = desired_path[-1] # send the last point in the desired path
 
-            network.send(i, data=[[cur_heading, 0], cur_loc, next_loc])
+            sent = network.send(i, data=[[cur_heading, 0], cur_loc, next_loc])
+            print(f"[SEND] Robot {i} sent={sent} cur={cur_loc} heading={cur_heading} next={next_loc} final={config.END_POINT}")
         time.sleep(0.20) # Jetson refresh rate
 
 if __name__ == "__main__":
