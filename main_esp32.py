@@ -5,7 +5,7 @@ import time
 import network
 
 
-R_ID = 0       # config the id of the robot
+R_ID = 2       # config the id of the robot
 
 def connect_to_wifi():
     ssid = config.WIFI_SSID

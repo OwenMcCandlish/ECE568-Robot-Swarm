@@ -51,7 +51,8 @@ class Packet:
         if (not just_header and self.length > 0):
             # > = big endian, H = short
             format_str = ">" + "HH" * self.length
-            raw_data = struct.unpack(format_str, raw_packet[1:])
+            expected_size = struct.calcsize(format_str)
+            raw_data = struct.unpack(format_str, raw_packet[1:1+expected_size])
 
             # construct a list of cord pairs from a byte stream
             self.data = [(raw_data[i], raw_data[i+1]) for i in range(0, len(raw_data), 2)]
@@ -70,27 +71,47 @@ class JetsonNetwork:
     def __init__(self):
         self.devices: dict[int, socket.socket] = {}
         self.soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     def start(self, num_devices: int = NUM_DEVICES, ip: str = IP, port: int = PORT):
         """Starts the network interface. Call this prior to calling any other method."""
-        self.soc.bind((ip, port))
+        try:
+            self.soc.bind((ip, port))
+        except OSError as e:
+            print(f"Failed to bind to {ip}:{port}: {e}")
+            raise
         self.soc.listen(num_devices)
 
         while (len(self.devices) < num_devices):
             print("Waiting on connection...")
-            conn, _ = self.soc.accept()
-            print("Accepted Connection")
-            raw_resv = conn.recv(128)
-            packet = Packet().decode(raw_resv)
-            conn.sendall(Packet(ack=True).encode()) # ack
-            self.devices[packet.id] = conn
+            conn, addr = self.soc.accept()
+            print(f"Accepted Connection from {addr}")
+            try:
+                raw_resv = conn.recv(128)
+                if not raw_resv:
+                    print("Received empty packet, closing connection")
+                    conn.close()
+                    continue
+                packet = Packet().decode(raw_resv)
+                print(f"Registered device {packet.id}")
+                conn.sendall(Packet(ack=True).encode()) # ack
+                self.devices[packet.id] = conn
+            except Exception as e:
+                print(f"Error during handshake: {e}")
+                conn.close()
 
     def send(self, id: int, data):
         """Sends a packet to the Esp32 with 'id' with the data specified by 'data'"""
         if (id not in self.devices):
-            raise ConnectionError(f"Device Id={id} not connected.")
-        packet = Packet(length=len(data), data=data)
-        self.devices[id].sendall(packet.encode())
+            return
+
+        try:
+            packet = Packet(length=len(data), data=data)
+            self.devices[id].sendall(packet.encode())
+        except Exception as e:
+            print(f"Failed to send to device {id}: {e}")
+            self.devices[id].close()
+            del self.devices[id]
 
     def close(self):
         self.soc.close()
@@ -116,18 +137,35 @@ class Esp32Network:
 
     def start(self, ip: str = IP, port: int = PORT):
         """Starts the interface. Call this before any other method."""
-        print("Connecting...")
-        self.soc.connect((ip, port))
-        print("Sending init packet..")
+        print("Connecting to {}:{}...".format(ip, port))
+        try:
+            self.soc.connect((ip, port))
+        except OSError as e:
+            print("Connect failed with errno: {}".format(e.errno))
+            if e.errno == 104: # ECONNRESET
+                print("Connection reset by peer. Ensure Jetson script is running and IP is correct.")
+            elif e.errno == 111: # ECONNREFUSED
+                print("Connection refused. Is the Jetson script listening on port {}?".format(port))
+            raise e
+
+        print("Sending init packet (id={})..".format(self.id))
         self.soc.sendall(Packet(id=self.id).encode())
 
         got_ack = False
         print("Waiting on ack..")
         while (not got_ack):
-            raw_resv = self.soc.recv(1024)
-            packet = Packet().decode(raw_resv)
-            if (packet.ack):
-                got_ack = True
+            try:
+                raw_resv = self.soc.recv(1024)
+                if not raw_resv:
+                    print("Connection closed by server while waiting for ACK")
+                    raise ConnectionError("Connection closed by server")
+                packet = Packet().decode(raw_resv)
+                if (packet.ack):
+                    got_ack = True
+            except OSError as e:
+                print("Recv failed during handshake: {}".format(e))
+                raise e
+
         print("Registered connection")
         self.soc.setblocking(False) # make non-blocking to allow polling later
 
