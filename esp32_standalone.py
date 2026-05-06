@@ -168,7 +168,7 @@ class Motor:
             self.stop()
             return
 
-        MIN_DUTY = 650
+        MIN_DUTY = 800
         MAX_DUTY = 1023
 
         duty = int(MIN_DUTY + (abs(speed) / 100) * (MAX_DUTY - MIN_DUTY))

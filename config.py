@@ -15,7 +15,7 @@ FOLLOW_DIST_CM = 30
 MAX_V = 10                    # max linear speed in cm/sec
 MAX_W = math.pi / 4           # max angular speed in rad/sec
 
-LOOKAHEAD_LEN = 15q           # number of path points to look ahead
+LOOKAHEAD_LEN = 15      # number of path points to look ahead
 INTERVAL = 0.1
 
 MAX_E = 20 * MAX_V * INTERVAL
