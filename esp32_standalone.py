@@ -58,9 +58,9 @@ R2_END   = [80,80]
 
 DC_SCALE = 3
 
-PI_IP = "172.20.10.2"
-WIFI_SSID = "ZOHAIBSINTERNET"
-WIFI_PWD = "Zohaibisbest"
+PI_IP = "192.168.137.164"
+WIFI_SSID = "owen"
+WIFI_PWD = "190154om03"
 
 # ----------------- NETWORK -----------------
 class Message:
@@ -361,16 +361,6 @@ class robot():
         self.driver.stop()
 
 # ----------------- MAIN LOOP -----------------
-if R_ID == 0:
-    START_POINT = R0_START
-    END_POINT   = R0_END
-elif R_ID == 1:
-    START_POINT = R0_START
-    END_POINT   = R0_END
-elif R_ID == 2:
-    START_POINT = R0_START
-    END_POINT   = R0_END
-
 def connect_wifi():
     import network
     wlan = network.WLAN(network.STA_IF)
@@ -388,7 +378,13 @@ if __name__ == "__main__":
     connect_wifi()
     DRIVER = TB6612FNG()
     NET = Esp32Network(R_ID)
-    ROBOT = robot(DRIVER, START_POINT, END_POINT)
+
+    while(True):
+        if (NET.poll()):
+            [yaw, _ ], curr_pos, goal_pos = NET.recv().data
+            break
+
+    ROBOT = robot(DRIVER, curr_pos, goal_pos)
 
    # SONAR = Ultrasonic(trig_pin=4, echo_pin=32)
 
