@@ -168,7 +168,7 @@ class Motor:
             self.stop()
             return
 
-        MIN_DUTY = 800
+        MIN_DUTY = 750
         MAX_DUTY = 1023
 
         duty = int(MIN_DUTY + (abs(speed) / 100) * (MAX_DUTY - MIN_DUTY))
@@ -312,19 +312,39 @@ class robot():
 
     def calculate_headings(self, pos, goal, orientation):
         orientation = math.radians(orientation)
+
         dx = goal[0] - pos[0]
         dy = goal[1] - pos[1]
-        l = math.sqrt( (dx**2) + (dy**2) )
+        l = math.sqrt((dx ** 2) + (dy ** 2))
 
-        theta_line = math.atan2(dy,dx)
+        if l <= 2.0:
+            return 0.0, 0.0
+
+        theta_line = math.atan2(dy, dx)
         theta_offset = theta_line - orientation
 
+        # Normalize to [-pi, pi]
+        while theta_offset > math.pi:
+            theta_offset -= 2 * math.pi
+        while theta_offset < -math.pi:
+            theta_offset += 2 * math.pi
+
+        # If badly misaligned, rotate in place first.
+        if abs(theta_offset) > math.radians(35):
+            v = 0.0
+
+            if theta_offset > 0:
+                w = MAX_W
+            else:
+                w = -MAX_W
+
+            return v, w
+
+        # If roughly aligned, move forward and steer.
         v_limit = self.pid.pid_calculate(pos)
 
-        if ( abs(l * math.sin(theta_offset)) < 0.01 ):
-            w = 0.0
-        else:
-            w = -(2 * v_limit * math.sin(theta_offset)) / max(l, 0.001)
+        # IMPORTANT: no negative sign here
+        w = (2 * v_limit * math.sin(theta_offset)) / max(l, 0.001)
 
         v, w = self.set_w_speed_limit(v_limit, w)
         return v, w

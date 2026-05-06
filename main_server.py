@@ -46,8 +46,7 @@ def main():
             cur_loc: tuple[int, int] = cur_locs[i]
             cur_heading: int = cur_headings[i]
 
-            desired_path = path_planner.get_next_waypoints(i, cur_loc)
-            next_loc = desired_path[-1] # send the last point in the desired path
+            next_loc = config.END_POINT
 
             sent = network.send(i, data=[[cur_heading, 0], cur_loc, next_loc])
             print(f"[SEND] Robot {i} sent={sent} cur={cur_loc} heading={cur_heading} next={next_loc} final={config.END_POINT}")
