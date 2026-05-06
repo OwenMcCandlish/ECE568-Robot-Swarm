@@ -12,11 +12,13 @@ try:
 except ImportError:
     config = None
 
+
 # =========================
 # Vision Class for Integration
 # =========================
 class Vision:
     def __init__(self, show_feed=False):
+        self.HEADING_OFFSET_DEG = 0
         self.TAG_FAMILY = "tag36h11"
         self.SMOOTHING_ALPHA = 0.2
         self.FRAME_WIDTH = 640
@@ -182,7 +184,13 @@ class Vision:
                 dy = top_center_y - bottom_center_y
 
             angle_rad = math.atan2(dy, dx)
-            angle_deg = math.degrees(angle_rad)
+            angle_deg = math.degrees(angle_rad) + self.HEADING_OFFSET_DEG
+
+            while angle_deg > 180:
+                angle_deg -= 360
+
+            while angle_deg < -180:
+                angle_deg += 360
             
             if arena_ready:
                 world_pos = self._pixel_to_world_cm(float(center[0]), float(center[1]))
@@ -298,6 +306,7 @@ class Vision:
 # =========================
 def run_standalone():
     # Configuration
+    HEADING_OFFSET_DEG = 0
     TAG_FAMILY = "tag36h11"
     SMOOTHING_ALPHA = 0.2
     ARROW_LENGTH = 50
@@ -451,7 +460,13 @@ def run_standalone():
                     dy = top_center_y - bottom_center_y
 
                 angle_rad = math.atan2(dy, dx)
-                angle_deg = math.degrees(angle_rad)
+                angle_deg = math.degrees(angle_rad) + HEADING_OFFSET_DEG
+
+                while angle_deg > 180:
+                    angle_deg -= 360
+
+                while angle_deg < -180:
+                    angle_deg += 360
                 
                 if H_IMAGE_TO_WORLD is not None:
                     point = np.array([[[float(center[0]), float(center[1])]]], dtype=np.float32)
