@@ -159,20 +159,27 @@ class Motor:
     def run(self, speed):
         """
         speed is from -100 to 100 percent.
-        Converts to MicroPython ESP32 PWM duty 0-1023.
+        Converts to a strong TB6612 PWM duty.
+        Your working motor test used duty=800, so we enforce a minimum moving duty.
         """
         speed = max(-100, min(100, speed))
-        duty = int(abs(speed) / 100 * 1023)
+
+        if abs(speed) < 1:
+            self.stop()
+            return
+
+        MIN_DUTY = 650
+        MAX_DUTY = 1023
+
+        duty = int(MIN_DUTY + (abs(speed) / 100) * (MAX_DUTY - MIN_DUTY))
+        duty = min(duty, MAX_DUTY)
 
         if speed > 0:
             self.in1.value(1)
             self.in2.value(0)
-        elif speed < 0:
+        else:
             self.in1.value(0)
             self.in2.value(1)
-        else:
-            self.stop()
-            return
 
         self.pwm.duty(duty)
 
@@ -336,7 +343,11 @@ class robot():
     def run(self, curr_pos, goal_pos, orientation):
         self.pid.goal_pos = goal_pos
         v, w = self.calculate_headings(curr_pos, goal_pos, orientation)
-        dc_r, dc_l = self.calculate_actuator_speeds(v,w)
+        dc_r, dc_l = self.calculate_actuator_speeds(v, w)
+
+        print("CTRL:", "pos=", curr_pos, "goal=", goal_pos, "yaw=", orientation,
+            "v=", v, "w=", w, "R=", dc_r, "L=", dc_l)
+
         self.driver.set_speeds(dc_r, dc_l)
 
     def emergency_stop(self):
