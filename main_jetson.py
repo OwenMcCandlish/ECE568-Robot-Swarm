@@ -7,7 +7,7 @@ import jetson.path_planner as path_planner
 
 def main():
     network = JetsonNetwork()
-    vision = Vision()
+    vision = Vision(show_feed=False)
 
     # Start Network
     network.start(config.NUM_DEVICES)
