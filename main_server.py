@@ -14,10 +14,10 @@ ARENA_MIN_CM = 0.0
 ARENA_MAX_CM = 82.0
 
 # Keep robot away from actual boundary tags
-BOUNDARY_MARGIN_CM = 5.0
+BOUNDARY_MARGIN_CM = 3.0
 
 # Robot must get within this distance of a corner target to count as reached
-CORNER_RADIUS_CM = 8.0
+CORNER_RADIUS_CM = 15.0
 
 # Send rate to ESP32
 SEND_PERIOD_SEC = 0.20
