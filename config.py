@@ -24,7 +24,7 @@ MAX_E                       = 20 * MAX_V * INTERVAL                     # Distan
 
 NET_TIMEOUT                 = 2                                         # time to assume net fail & and stop bot
 
-NUM_DEVICES = 3
+NUM_DEVICES = 1
 END_POINT = (0, 0) # TODO
 
 # ROBOT START, END POINTS
