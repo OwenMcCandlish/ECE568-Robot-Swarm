@@ -28,22 +28,22 @@ except ImportError:
             return iter(self.q)
 
 # ----------------- CONFIGURATION -----------------
-PIXEL_LENGTH                = 2                                         
-BOT_LENGTH_CM               = 20                                        
-BOT_LENGTH_PIXEL            = BOT_LENGTH_CM // PIXEL_LENGTH             
-BOT_WIDTH_CM                = 10                                        
-BOT_WIDTH_PIXEL             = BOT_WIDTH_CM // PIXEL_LENGTH              
-FOLLOW_DIST_CM              = 10                                        
-FOLLOW_DIST_PIXEL           = FOLLOW_DIST_CM // PIXEL_LENGTH            
+PIXEL_LENGTH                = 2
+BOT_LENGTH_CM               = 20
+BOT_LENGTH_PIXEL            = BOT_LENGTH_CM // PIXEL_LENGTH
+BOT_WIDTH_CM                = 10
+BOT_WIDTH_PIXEL             = BOT_WIDTH_CM // PIXEL_LENGTH
+FOLLOW_DIST_CM              = 10
+FOLLOW_DIST_PIXEL           = FOLLOW_DIST_CM // PIXEL_LENGTH
 
-MAX_V                       = 10                                        
-MAX_W                       = math.pi / 4                               
+MAX_V                       = 10
+MAX_W                       = math.pi / 4
 
-LOOKAHEAD_LEN               = 5                                         
-INTERVAL                    = 0.1                                       
-MAX_E                       = 20 * MAX_V * INTERVAL                     
+LOOKAHEAD_LEN               = 5
+INTERVAL                    = 0.1
+MAX_E                       = 20 * MAX_V * INTERVAL
 
-NET_TIMEOUT                 = 2                                         
+NET_TIMEOUT                 = 2
 NUM_DEVICES                 = 3
 END_POINT                   = (500, 350)
 
@@ -56,7 +56,7 @@ R1_END   = [85,85]
 R2_START = [0,0]
 R2_END   = [80,80]
 
-DC_SCALE = 3                    
+DC_SCALE = 3
 
 PI_IP = "172.20.10.2"
 WIFI_SSID = "ZOHAIBSINTERNET"
@@ -99,7 +99,7 @@ class Esp32Network:
                     has_new = True
         except OSError:
             pass
-        
+
         if time.time() - self.last_hello > 2:
             self.send_hello()
             self.last_hello = time.time()
@@ -329,14 +329,11 @@ class robot():
         # Forward speed logic
         abs_error = abs(heading_error)
 
-        if abs_error > 100:
-            # Very wrong direction: mostly rotate, little/no forward
+        if abs_error > 15:
+            # Not aligned: only rotate
             forward = 0
-        elif abs_error > 45:
-            # Moderately wrong: slow forward while turning
-            forward = self.SLOW_SPEED
         else:
-            # Mostly aligned: drive normally
+            # Aligned: drive normally
             forward = self.FORWARD_SPEED
 
         right_cmd = forward + turn
@@ -392,7 +389,7 @@ if __name__ == "__main__":
     DRIVER = TB6612FNG()
     NET = Esp32Network(R_ID)
     ROBOT = robot(DRIVER, START_POINT, END_POINT)
-    
+
    # SONAR = Ultrasonic(trig_pin=4, echo_pin=32)
 
     NET.start()

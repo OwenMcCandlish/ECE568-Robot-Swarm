@@ -29,14 +29,21 @@ def main():
         print("Waiting for leader tag ID 0...")
         time.sleep(0.2)
 
-    path_planner.PATHS[0] = path_planner.create_one_path(
-        np.array(leader),
-        np.array(config.END_POINT)
-    )
+    arena = config.ARENA_SIZE_CM
+    margin = 10.0
+    path_planner.PATHS[0] = [
+        leader,
+        (margin, margin),
+        (margin, arena - margin),
+        (arena - margin, arena - margin),
+        (arena - margin, margin),
+        (margin, margin)
+    ]
+    goal_point = path_planner.PATHS[0][-1]
 
     waypoint_index = 0
-    print(f"[PATH] Created {len(path_planner.PATHS[0])} points.")
-    print(f"[PATH] Start={leader}, End={config.END_POINT}")
+    print(f"[PATH] Created {len(path_planner.PATHS[0])} waypoints to trace corners.")
+    print(f"[PATH] Start={leader}, End={goal_point}")
 
     while True:
         cur_locs, cur_headings = vision.locate_robots()
@@ -52,7 +59,7 @@ def main():
         x, y = cur_loc
 
         # Safety stop if outside arena
-        if x < 0 or x > 82 or y < 0 or y > 82:
+        if x < -10 or x > 92 or y < -10 or y > 92:
             print(f"[SAFETY] Robot out of arena at {cur_loc}. Sending stop.")
             next_loc = cur_loc
 
@@ -60,9 +67,9 @@ def main():
             path = path_planner.PATHS[0]
 
             # Final stop buffer
-            final_dist = dist(cur_loc, config.END_POINT)
+            final_dist = dist(cur_loc, goal_point)
 
-            if final_dist <= FINAL_RADIUS_CM:
+            if final_dist <= FINAL_RADIUS_CM and waypoint_index >= len(path) - 1:
                 print(f"[GOAL] Within {FINAL_RADIUS_CM}cm of final target. Stopping.")
                 next_loc = cur_loc
 
@@ -79,9 +86,9 @@ def main():
             f"[SEND] Robot 0 sent={sent} "
             f"cur={cur_loc} heading={cur_heading} "
             f"wp_index={waypoint_index}/{len(path_planner.PATHS[0]) - 1} "
-            f"next={next_loc} final={config.END_POINT} "
+            f"next={next_loc} final={goal_point} "
             f"dist_to_next={dist(cur_loc, next_loc):.1f}cm "
-            f"dist_to_final={dist(cur_loc, config.END_POINT):.1f}cm"
+            f"dist_to_final={dist(cur_loc, goal_point):.1f}cm"
         )
 
         time.sleep(0.20)
