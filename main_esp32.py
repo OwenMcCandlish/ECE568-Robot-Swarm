@@ -1,7 +1,6 @@
 from shared import network as esp_network
-from esp32 import imu, motor_driver
+from esp32_lib import imu, motor_driver, robot
 import config
-import robot
 import time
 
 R_ID = 0       # config the id of the robot
