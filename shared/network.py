@@ -174,6 +174,9 @@ class Esp32Network:
 
         return Packet().decode(packet_bytes)
 
+    def close(self):
+        self.soc.close()
+
     def __del__(self):
         self.soc.close()
 

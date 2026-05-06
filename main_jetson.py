@@ -14,7 +14,7 @@ def main():
 
     # Create Paths
     leader, follower1, follower2 = vision.locate_robots()[0]
-    path_planner.plan_paths(leader, config.END_POINT, follower1, follower2)
+    path_planner.plan_paths(leader, config.END_POINT, follower1)
 
     while (True):
         # get bot positions
@@ -29,7 +29,7 @@ def main():
             next_loc = desired_path[-1] # send the last point in the desired path
 
             network.send(i, data=[(cur_heading, 0), cur_loc, next_loc])
-        time.sleep(0.20) # Jetson refresh rate
+        time.sleep(0.10) # Jetson refresh rate
 
 if __name__ == "__main__":
     main()

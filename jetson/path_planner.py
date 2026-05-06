@@ -4,7 +4,7 @@ import math
 import config
 
 # Globals
-PATHS = [ [], [], [] ]          # Global Variable for accessing the planned paths for each bot
+PATHS = [ [], [] ]          # Global Variable for accessing the planned paths for each bot
 
 
 def create_one_path(start, end):
@@ -14,7 +14,7 @@ def create_one_path(start, end):
     line_unique = np.unique(line_rounded, axis=0)
     return line_unique.tolist()
 
-def plan_paths(start, end, f1, f2) -> list:
+def plan_paths(start, end, f1, f2=(0,0)) -> list:
     """
         Task 4: Plan Paths
         Lead: Joshua
@@ -26,10 +26,16 @@ def plan_paths(start, end, f1, f2) -> list:
         Returns:    paths   <list>          2D list of paths [ [path1], [path2], [path3] ]
     """
     global PATHS
+    # p_lead  = create_one_path( np.array(start), np.array(end)   )
+    # p_f1    = create_one_path(np.array(f1), np.array(start)) + p_lead[1:-config.FOLLOW_DIST_PIXEL]
+    # p_f2    = create_one_path(np.array(f2), np.array(f1)) + p_f1[1:-config.FOLLOW_DIST_PIXEL]
+    # PATHS   = [p_lead, p_f1, p_f2]
+
+    # 2 Robot version
     p_lead  = create_one_path( np.array(start), np.array(end)   )
     p_f1    = create_one_path(np.array(f1), np.array(start)) + p_lead[1:-config.FOLLOW_DIST_PIXEL]
-    p_f2    = create_one_path(np.array(f2), np.array(f1)) + p_f1[1:-config.FOLLOW_DIST_PIXEL]
-    PATHS   = [p_lead, p_f1, p_f2]
+    PATHS   = [p_lead, p_f1]
+
     return PATHS
 
 def get_next_waypoints(bot_id, bot_pos):
