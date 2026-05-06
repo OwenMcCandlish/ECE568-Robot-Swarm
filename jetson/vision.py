@@ -310,6 +310,11 @@ class Vision:
                 x = int(self.smoothed_states[i]["x_px"])
                 y = int(self.smoothed_states[i]["y_px"])
                 h = int(self.smoothed_states[i]["heading_deg"])
+
+                # eliminate negative headings
+                if (h < 0):
+                    h = 360 + h
+
                 cur_locs.append((x, y))
                 cur_headings.append(h)
             else:

@@ -40,7 +40,7 @@ R2_END      = [80,80]
 DC_SCALE = 3                    # convert pwm percent to a velocity in cm/sec
 
 # Network Parameters
-PI_IP = "172.20.10.2"
+PI_IP = "192.168.137.164"
 PI_PORT = 60007
-WIFI_SSID = "ZOHAIBSINTERNET"
-WIFI_PWD = "Zohaibisbest"
+WIFI_SSID = "owen"
+WIFI_PWD = "190154om03"

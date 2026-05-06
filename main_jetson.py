@@ -7,7 +7,7 @@ import jetson.path_planner as path_planner
 
 def main():
     network = JetsonNetwork()
-    vision = Vision(show_feed=False)
+    vision = Vision(show_feed=True)
 
     # Start Network
     network.start(config.NUM_DEVICES)
@@ -30,7 +30,9 @@ def main():
             desired_path = path_planner.get_next_waypoints(i, cur_loc)
             next_loc = desired_path[-1] # send the last point in the desired path
 
-            network.send(i, data=[(cur_heading, 0), cur_loc, next_loc])
+            # network.send(i, data=[(cur_heading, 0), cur_loc, next_loc])
+            # print(f"Corners: {}")
+            # print(f"Heading: {cur_heading}, Location: {cur_loc}")
         time.sleep(0.10) # Jetson refresh rate
 
 if __name__ == "__main__":
