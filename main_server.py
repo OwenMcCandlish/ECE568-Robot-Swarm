@@ -11,11 +11,17 @@ import path_planner
 # Tuning constants
 # =========================
 
-ARENA_MIN_CM = 2.0
-ARENA_MAX_CM = 80.0
+ARENA_MIN_CM = 0.0
+ARENA_MAX_CM = 82.0
 
-WAYPOINT_RADIUS_CM = 6.0
+# Hard stop if close to border
+BOUNDARY_MARGIN_CM = 3.0
+
+# Stop permanently when close enough to final goal
 FINAL_RADIUS_CM = 8.0
+
+# How far ahead on the path to aim
+LOOKAHEAD_POINTS = 1
 
 SEND_PERIOD_SEC = 0.20
 
@@ -28,12 +34,21 @@ def dist(a, b):
     )
 
 
-def inside_arena(pos):
+def inside_safe_arena(pos):
     x, y = pos
+
     return (
-        ARENA_MIN_CM <= x <= ARENA_MAX_CM
-        and ARENA_MIN_CM <= y <= ARENA_MAX_CM
+        ARENA_MIN_CM + BOUNDARY_MARGIN_CM <= x <= ARENA_MAX_CM - BOUNDARY_MARGIN_CM
+        and ARENA_MIN_CM + BOUNDARY_MARGIN_CM <= y <= ARENA_MAX_CM - BOUNDARY_MARGIN_CM
     )
+
+
+def get_closest_path_index(path, cur_loc):
+    path_arr = np.array(path, dtype=float)
+    cur_arr = np.array(cur_loc, dtype=float)
+
+    distances = np.linalg.norm(path_arr - cur_arr, axis=1)
+    return int(np.argmin(distances))
 
 
 def main():
@@ -70,7 +85,6 @@ def main():
     )
 
     path = path_planner.PATHS[0]
-    waypoint_index = 0
 
     print(f"[PATH] Created {len(path)} points.")
     print(f"[PATH] Start={leader}, End={config.END_POINT}")
@@ -97,15 +111,14 @@ def main():
 
         cur_loc = cur_locs[0]
         cur_heading = cur_headings[0]
-
         final_dist = dist(cur_loc, config.END_POINT)
 
         # =========================
         # Hard boundary stop
         # =========================
-        if not inside_arena(cur_loc):
+        if not inside_safe_arena(cur_loc):
             boundary_stop = True
-            stop_reason = f"OUT_OF_BOUNDS at {cur_loc}"
+            stop_reason = f"OUT_OF_BOUNDS_OR_TOO_CLOSE_TO_BOUNDARY at {cur_loc}"
 
         # =========================
         # Hard goal stop
@@ -137,24 +150,19 @@ def main():
             continue
 
         # =========================
-        # Waypoint advance logic
+        # Robust path-following:
+        # choose closest path point, then aim slightly ahead.
+        # This prevents chasing old waypoints behind the robot.
         # =========================
-        path = path_planner.PATHS[0]
-
-        while (
-            waypoint_index < len(path) - 1
-            and dist(cur_loc, path[waypoint_index]) <= WAYPOINT_RADIUS_CM
-        ):
-            waypoint_index += 1
-
-        next_loc = path[waypoint_index]
+        closest_index = get_closest_path_index(path, cur_loc)
+        target_index = min(closest_index + LOOKAHEAD_POINTS, len(path) - 1)
+        next_loc = path[target_index]
 
         # Extra protection:
-        # If next waypoint is somehow outside arena, stop forever.
-        if not inside_arena(next_loc):
-            boundary_stop = True
-            stop_reason = f"NEXT_WAYPOINT_OUT_OF_BOUNDS {next_loc}"
-            next_loc = cur_loc
+        # If selected waypoint is unsafe, use final endpoint if final is safe.
+        if not inside_safe_arena(next_loc):
+            print(f"[WARN] Selected waypoint {next_loc} near/outside boundary. Using final endpoint.")
+            next_loc = config.END_POINT
 
         sent = network.send(
             0,
@@ -164,7 +172,8 @@ def main():
         print(
             f"[SEND] Robot 0 sent={sent} | "
             f"cur={cur_loc} heading={cur_heading} | "
-            f"wp_index={waypoint_index}/{len(path) - 1} | "
+            f"closest_index={closest_index}/{len(path) - 1} | "
+            f"target_index={target_index}/{len(path) - 1} | "
             f"next={next_loc} final={config.END_POINT} | "
             f"dist_to_next={dist(cur_loc, next_loc):.1f}cm | "
             f"dist_to_final={final_dist:.1f}cm"
