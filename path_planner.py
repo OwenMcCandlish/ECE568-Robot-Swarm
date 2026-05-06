@@ -7,12 +7,21 @@ import config
 PATHS = [ [], [], [] ]          # Global Variable for accessing the planned paths for each bot
 
 
-def create_one_path(start, end):
-    min_num_points = np.linalg.norm(end - start).astype(int) + 1
-    line = np.linspace(start, end, min_num_points)
+def create_one_path(start, end, spacing_cm=10.0):
+    start = np.array(start, dtype=float)
+    end = np.array(end, dtype=float)
+
+    distance = np.linalg.norm(end - start)
+
+    if distance < 1e-6:
+        return [start.astype(int).tolist()]
+
+    num_points = int(distance / spacing_cm) + 2
+
+    line = np.linspace(start, end, num_points)
     line_rounded = np.round(line).astype(int)
-    line_unique = np.unique(line_rounded, axis=0)
-    return line_unique.tolist()
+
+    return line_rounded.tolist()
 
 def plan_paths(start, end, f1, f2) -> list:
     """
