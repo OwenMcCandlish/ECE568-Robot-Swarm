@@ -334,9 +334,9 @@ class robot():
             v = 0.0
 
             if theta_offset > 0:
-                w = MAX_W
-            else:
                 w = -MAX_W
+            else:
+                w = MAX_W
 
             return v, w
 
@@ -344,7 +344,7 @@ class robot():
         v_limit = self.pid.pid_calculate(pos)
 
         # IMPORTANT: no negative sign here
-        w = (2 * v_limit * math.sin(theta_offset)) / max(l, 0.001)
+        w = -(2 * v_limit * math.sin(theta_offset)) / max(l, 0.001)
 
         v, w = self.set_w_speed_limit(v_limit, w)
         return v, w

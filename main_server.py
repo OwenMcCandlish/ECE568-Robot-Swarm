@@ -46,7 +46,12 @@ def main():
             cur_loc: tuple[int, int] = cur_locs[i]
             cur_heading: int = cur_headings[i]
 
-            next_loc = config.END_POINT
+            x, y = cur_loc
+            if x < 0 or x > 82 or y < 0 or y > 82:
+                print(f"[SAFETY] Robot out of arena at {cur_loc}. Sending stop.")
+                next_loc = cur_loc
+            else:
+                next_loc = config.END_POINT
 
             sent = network.send(i, data=[[cur_heading, 0], cur_loc, next_loc])
             print(f"[SEND] Robot {i} sent={sent} cur={cur_loc} heading={cur_heading} next={next_loc} final={config.END_POINT}")
