@@ -18,7 +18,7 @@ except ImportError:
 # =========================
 class Vision:
     def __init__(self, show_feed=False):
-        self.HEADING_OFFSET_DEG = 0
+        self.HEADING_OFFSET_DEG = 180
         self.TAG_FAMILY = "tag36h11"
         self.SMOOTHING_ALPHA = 0.2
         self.FRAME_WIDTH = 640
@@ -306,7 +306,7 @@ class Vision:
 # =========================
 def run_standalone():
     # Configuration
-    HEADING_OFFSET_DEG = 0
+    HEADING_OFFSET_DEG = 180
     TAG_FAMILY = "tag36h11"
     SMOOTHING_ALPHA = 0.2
     ARROW_LENGTH = 50
