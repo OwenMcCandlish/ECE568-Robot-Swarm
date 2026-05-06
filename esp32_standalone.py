@@ -179,13 +179,11 @@ class Robot:
 
         # Main tuning values
         self.FORWARD_SPEED = 28
-        self.TURN_SPEED = 35
+        self.TURN_SPEED = 25
+        self.ANGLE_TOLERANCE_DEG = 20.0
 
         # Stop when within this distance of target point
         self.GOAL_RADIUS_CM = 6.0
-
-        # Must face target within this angle before driving straight
-        self.ANGLE_TOLERANCE_DEG = 12.0
 
         # Flip this if robot rotates away from target
         self.TURN_SIGN = -1

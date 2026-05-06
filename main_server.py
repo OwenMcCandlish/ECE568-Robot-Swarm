@@ -13,17 +13,17 @@ import config
 ARENA_MIN_CM = 0.0
 ARENA_MAX_CM = 82.0
 
-# Keep robot away from actual boundary tags
-BOUNDARY_MARGIN_CM = 3.0
+# Hard stop if robot gets too close to actual arena boundary
+BOUNDARY_MARGIN_CM = 8.0
 
-# Robot must get within this distance of a corner target to count as reached
+# Robot counts a corner as reached if it gets within this radius
 CORNER_RADIUS_CM = 15.0
 
 # Send rate to ESP32
 SEND_PERIOD_SEC = 0.20
 
-# If True, robot keeps going corner to corner forever.
-# If False, robot stops after one full corner loop.
+# False = stop after one full loop
+# True = keep going corner to corner forever
 LOOP_FOREVER = False
 
 
@@ -36,17 +36,14 @@ LOOP_FOREVER = False
 # Tag 11 = (82, 82)    top-right
 # Tag 10 = (0, 82)     top-left
 #
-# We use safe inside-corners:
-# bottom-left  = (8, 8)
-# bottom-right = (74, 8)
-# top-right    = (74, 74)
-# top-left     = (8, 74)
+# These targets are moved inward so the robot does not drive too close
+# to the real boundary tags.
 
 CORNER_TARGETS = [
-    (8, 8),
-    (74, 8),
-    (74, 74),
-    (8, 74),
+    (15, 18),   # near tag 13, safely inside
+    (67, 18),   # near tag 12, safely inside
+    (67, 64),   # near tag 11, safely inside
+    (15, 64),   # near tag 10, safely inside
 ]
 
 
@@ -89,6 +86,8 @@ def main():
     print("[START] Corner-to-corner mode")
     print("[START] Need corner tags 10, 11, 12, 13 and robot tag 0 visible.")
     print(f"[CORNERS] {CORNER_TARGETS}")
+    print(f"[SAFETY] Boundary margin: {BOUNDARY_MARGIN_CM}cm")
+    print(f"[TARGET] Corner radius: {CORNER_RADIUS_CM}cm")
 
     # =========================
     # Wait for leader tag 0
@@ -110,15 +109,21 @@ def main():
     # =========================
     # Choose first target
     # =========================
-    # If robot starts near a corner, go to the next corner in order.
-    # Example: near bottom-left -> target bottom-right.
+    # If robot starts near tag 13, first target will be near tag 12.
+    # If robot starts near tag 12, first target will be near tag 11.
     start_corner_index = nearest_corner_index(leader)
     target_index = (start_corner_index + 1) % len(CORNER_TARGETS)
 
     completed_targets = 0
 
-    print(f"[START] Nearest corner index: {start_corner_index}, corner={CORNER_TARGETS[start_corner_index]}")
-    print(f"[TARGET] First target index: {target_index}, target={CORNER_TARGETS[target_index]}")
+    print(
+        f"[START] Nearest corner index: {start_corner_index}, "
+        f"corner={CORNER_TARGETS[start_corner_index]}"
+    )
+    print(
+        f"[TARGET] First target index: {target_index}, "
+        f"target={CORNER_TARGETS[target_index]}"
+    )
 
     # =========================
     # Latching stop states
