@@ -14,7 +14,7 @@ ARENA_MIN_CM = 0.0
 ARENA_MAX_CM = 82.0
 
 # Hard stop if robot gets too close to actual arena boundary
-BOUNDARY_MARGIN_CM = 8.0
+BOUNDARY_MARGIN_CM = 3.0
 
 # Robot counts a corner as reached if it gets within this radius
 CORNER_RADIUS_CM = 15.0
