@@ -59,8 +59,9 @@ R2_END   = [80,80]
 DC_SCALE = 3                    
 
 PI_IP = "192.168.137.164"
-WIFI_SSID = "ZOHAIBSINTERNET"
-WIFI_PWD = "Zohaibisbest"
+WIFI_SSID = "owen"
+WIFI_PWD = "190154om03"
+
 
 # ----------------- NETWORK -----------------
 class Message:
@@ -291,14 +292,16 @@ class robot():
         self.driver = driver
         self.pos = start
 
-        # Tune these only if needed
-        self.FORWARD_SPEED = 35      # percent command
-        self.SLOW_SPEED = 22         # percent command
-        self.MAX_TURN = 35           # percent command
-        self.K_TURN = 0.7            # turn gain
+        # Movement tuning
+        self.FORWARD_SPEED = 28
+        self.TURN_SPEED = 35
 
-        # If robot turns the wrong way, change this to +1
-        self.TURN_SIGN = 1
+        # Alignment thresholds
+        self.ANGLE_TOLERANCE_DEG = 12
+        self.GOAL_RADIUS_CM = 5.0
+
+        # If robot rotates the wrong way, flip this to -1
+        self.TURN_SIGN = -1
 
     def normalize_angle_deg(self, angle):
         while angle > 180:
@@ -313,47 +316,51 @@ class robot():
 
         dist = math.sqrt(dx * dx + dy * dy)
 
-        if dist <= 4.0:
-            print("AT GOAL: stopping")
+        if dist <= self.GOAL_RADIUS_CM:
+            print("AT WAYPOINT: stopping")
             self.driver.stop()
             return
 
         desired_heading = math.degrees(math.atan2(dy, dx))
         heading_error = self.normalize_angle_deg(desired_heading - orientation)
 
-        # Turn command
-        turn = self.K_TURN * heading_error
-        turn = max(-self.MAX_TURN, min(self.MAX_TURN, turn))
-        turn = self.TURN_SIGN * turn
-
-        # Forward speed logic
         abs_error = abs(heading_error)
 
-        if abs_error > 100:
-            # Very wrong direction: mostly rotate, little/no forward
-            forward = 0
-        elif abs_error > 45:
-            # Moderately wrong: slow forward while turning
-            forward = self.SLOW_SPEED
-        else:
-            # Mostly aligned: drive normally
-            forward = self.FORWARD_SPEED
+        # STEP 1: If not facing target, stop and rotate only.
+        if abs_error > self.ANGLE_TOLERANCE_DEG:
+            if heading_error > 0:
+                turn = self.TURN_SPEED * self.TURN_SIGN
+            else:
+                turn = -self.TURN_SPEED * self.TURN_SIGN
 
-        right_cmd = forward + turn
-        left_cmd = forward - turn
+            right_cmd = turn
+            left_cmd = -turn
 
-        right_cmd = max(-100, min(100, right_cmd))
-        left_cmd = max(-100, min(100, left_cmd))
+            print(
+                "TURN:",
+                "pos=", curr_pos,
+                "goal=", goal_pos,
+                "yaw=", orientation,
+                "desired=", desired_heading,
+                "err=", heading_error,
+                "R=", right_cmd,
+                "L=", left_cmd
+            )
+
+            self.driver.set_speeds(right_cmd, left_cmd)
+            return
+
+        # STEP 2: If facing target, drive straight only.
+        right_cmd = self.FORWARD_SPEED
+        left_cmd = self.FORWARD_SPEED
 
         print(
-            "CTRL:",
+            "STRAIGHT:",
             "pos=", curr_pos,
             "goal=", goal_pos,
             "yaw=", orientation,
             "desired=", desired_heading,
             "err=", heading_error,
-            "F=", forward,
-            "T=", turn,
             "R=", right_cmd,
             "L=", left_cmd
         )

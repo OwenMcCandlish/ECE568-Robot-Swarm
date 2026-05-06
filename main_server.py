@@ -4,7 +4,6 @@ import time
 from pi_apriltag_tracker import Vision
 from swarm_network import JetsonNetwork
 import config
-import path_planner
 
 
 # =========================
@@ -14,17 +13,21 @@ import path_planner
 ARENA_MIN_CM = 0.0
 ARENA_MAX_CM = 82.0
 
-# Hard stop if close to border
+# Hard stop if robot gets too close to border
 BOUNDARY_MARGIN_CM = 3.0
 
 # Stop permanently when close enough to final goal
 FINAL_RADIUS_CM = 8.0
 
-# How far ahead on the path to aim
-LOOKAHEAD_POINTS = 1
+# Stop/advance when close enough to current axis waypoint
+WAYPOINT_RADIUS_CM = 6.0
 
 SEND_PERIOD_SEC = 0.20
 
+
+# =========================
+# Helper functions
+# =========================
 
 def dist(a, b):
     return float(
@@ -43,6 +46,31 @@ def inside_safe_arena(pos):
     )
 
 
+def create_axis_path(start, end):
+    """
+    Creates a Manhattan / axis-aligned path.
+
+    Robot moves:
+    1. Along X direction first
+    2. Then along Y direction
+
+    Example:
+    start = (13, 20)
+    end   = (50, 40)
+
+    path:
+    (13, 20) -> (50, 20) -> (50, 40)
+    """
+    sx, sy = start
+    ex, ey = end
+
+    return [
+        [int(sx), int(sy)],
+        [int(ex), int(sy)],
+        [int(ex), int(ey)]
+    ]
+
+
 def get_closest_path_index(path, cur_loc):
     path_arr = np.array(path, dtype=float)
     cur_arr = np.array(cur_loc, dtype=float)
@@ -50,6 +78,10 @@ def get_closest_path_index(path, cur_loc):
     distances = np.linalg.norm(path_arr - cur_arr, axis=1)
     return int(np.argmin(distances))
 
+
+# =========================
+# Main
+# =========================
 
 def main():
     network = JetsonNetwork()
@@ -77,18 +109,20 @@ def main():
         time.sleep(0.2)
 
     # =========================
-    # Create path
+    # Create axis-only path
     # =========================
-    path_planner.PATHS[0] = path_planner.create_one_path(
-        np.array(leader),
-        np.array(config.END_POINT)
+    path = create_axis_path(
+        leader,
+        config.END_POINT
     )
 
-    path = path_planner.PATHS[0]
-
-    print(f"[PATH] Created {len(path)} points.")
+    print(f"[PATH] Created axis-only path with {len(path)} points.")
     print(f"[PATH] Start={leader}, End={config.END_POINT}")
     print(f"[PATH] Points={path}")
+
+    # Current waypoint index.
+    # Start from 1 because path[0] is the robot's starting position.
+    waypoint_index = 1
 
     # =========================
     # Latching stop states
@@ -150,19 +184,33 @@ def main():
             continue
 
         # =========================
-        # Robust path-following:
-        # choose closest path point, then aim slightly ahead.
-        # This prevents chasing old waypoints behind the robot.
+        # Axis waypoint logic
         # =========================
-        closest_index = get_closest_path_index(path, cur_loc)
-        target_index = min(closest_index + LOOKAHEAD_POINTS, len(path) - 1)
-        next_loc = path[target_index]
 
-        # Extra protection:
-        # If selected waypoint is unsafe, use final endpoint if final is safe.
+        # If close to current waypoint, advance to next waypoint.
+        if waypoint_index < len(path):
+            current_waypoint = path[waypoint_index]
+
+            if dist(cur_loc, current_waypoint) <= WAYPOINT_RADIUS_CM:
+                print(
+                    f"[WAYPOINT] Reached waypoint {waypoint_index}: "
+                    f"{current_waypoint}. Advancing."
+                )
+                waypoint_index += 1
+
+        # If all waypoints are done, stop.
+        if waypoint_index >= len(path):
+            goal_reached = True
+            stop_reason = "ALL_WAYPOINTS_COMPLETE"
+            next_loc = cur_loc
+        else:
+            next_loc = path[waypoint_index]
+
+        # Extra protection: never send unsafe waypoint
         if not inside_safe_arena(next_loc):
-            print(f"[WARN] Selected waypoint {next_loc} near/outside boundary. Using final endpoint.")
-            next_loc = config.END_POINT
+            boundary_stop = True
+            stop_reason = f"NEXT_WAYPOINT_UNSAFE {next_loc}"
+            next_loc = cur_loc
 
         sent = network.send(
             0,
@@ -172,8 +220,7 @@ def main():
         print(
             f"[SEND] Robot 0 sent={sent} | "
             f"cur={cur_loc} heading={cur_heading} | "
-            f"closest_index={closest_index}/{len(path) - 1} | "
-            f"target_index={target_index}/{len(path) - 1} | "
+            f"wp_index={waypoint_index}/{len(path) - 1} | "
             f"next={next_loc} final={config.END_POINT} | "
             f"dist_to_next={dist(cur_loc, next_loc):.1f}cm | "
             f"dist_to_final={final_dist:.1f}cm"
