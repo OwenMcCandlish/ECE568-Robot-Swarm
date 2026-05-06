@@ -3,7 +3,7 @@ import time
 
 # Main
 network = JetsonNetwork()
-network.start(num_devices=1)
+network.start(num_devices=1, port=60007)
 
 while (True):
     network.send(0, [(1,1), (2,2)])

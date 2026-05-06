@@ -48,10 +48,10 @@ class Packet:
         self.id = (header & self.ID_MASK) >> self.ID_POS
         self.length = (header & self.LEN_MASK) >> self.LEN_POS
 
-        if (not just_header):
-            # > = big endian, x = don't care byte, H = short
-            format_str = ">x" + "HH" * self.length
-            raw_data = struct.unpack(format_str, raw_packet)
+        if (not just_header and self.length > 0):
+            # > = big endian, H = short
+            format_str = ">" + "HH" * self.length
+            raw_data = struct.unpack(format_str, raw_packet[1:])
 
             # construct a list of cord pairs from a byte stream
             self.data = [(raw_data[i], raw_data[i+1]) for i in range(0, len(raw_data), 2)]
@@ -92,10 +92,13 @@ class JetsonNetwork:
         packet = Packet(length=len(data), data=data)
         self.devices[id].sendall(packet.encode())
 
-    def __del__(self):
+    def close(self):
         self.soc.close()
         for soc in self.devices.values():
             soc.close()
+
+    def __del__(self):
+        self.close()
 
 class Esp32Network:
     """Represents the netork interface for the Esp32"""
@@ -167,7 +170,7 @@ class Esp32Network:
         packet_bytes = bytes(self.queue[:packet_byte_len])
 
         # remove packet
-        del self.queue[:packet_byte_len]
+        self.queue = self.queue[:packet_byte_len]
 
         return Packet().decode(packet_bytes)
 

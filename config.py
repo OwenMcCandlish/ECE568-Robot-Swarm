@@ -39,6 +39,7 @@ R2_END      = [80,80]
 
 DC_SCALE = 3                    # convert pwm percent to a velocity in cm/sec
 
-# Jetson Parameters
-SSID: str = "jetson" # TODO
-PWD: str = "12345"    # TODO
+# Network Parameters
+PI_IP = "172.20.10.2"
+WIFI_SSID = "ZOHAIBSINTERNET"
+WIFI_PWD = "Zohaibisbest"
