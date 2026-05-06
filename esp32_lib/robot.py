@@ -2,12 +2,9 @@
 # Imports
 from time import sleep
 import math
-from pid import pid_speed_controller
+from .pid import pid_speed_controller
 
 ##################################################################################
-# Globals
-PID_CONTROLLER = pid_speed_controller()
-
 class robot():
     def __init__(self, driver, start, end):
         self.driver = driver

@@ -2,15 +2,33 @@ from shared import network as esp_network
 from esp32_lib import imu, motor_driver, robot
 import config
 import time
+import network
+
 
 R_ID = 0       # config the id of the robot
 
-if __name__ == "__main__":
+def connect_to_wifi():
+    ssid = config.WIFI_SSID
+    pwd = config.WIFI_PWD
+    nic = network.WLAN(network.STA_IF)
+    nic.active(True)
+    if (not nic.isconnected()):
+        nic.connect(ssid, pwd)
+    while not nic.isconnected():
+        time.sleep_ms(10)
+    ip_addr = nic.ifconfig()[0]
+    print("Connected to {}".format(ssid))
+    print("IP Address: {}\n".format(ip_addr))
+    return ip_addr
+
+def main():
+    connect_to_wifi()
+
     # Fetch classes
     DRIVER = motor_driver.TB6612FNG()
-    NET = esp_network.Esp32Network()
+    NET = esp_network.Esp32Network(R_ID)
 
-    # initialize
+    # initialize network
     NET.start(config.PI_IP, 60007)
 
     # Get initial position
@@ -35,3 +53,6 @@ if __name__ == "__main__":
             NET.close()
             ROBOT.emergency_stop()
         time.sleep_ms(10)
+
+if __name__ == "__main__":
+    main()
