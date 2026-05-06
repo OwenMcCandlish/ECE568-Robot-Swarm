@@ -168,7 +168,7 @@ class Motor:
             self.stop()
             return
 
-        MIN_DUTY = 750
+        MIN_DUTY = 700
         MAX_DUTY = 1023
 
         duty = int(MIN_DUTY + (abs(speed) / 100) * (MAX_DUTY - MIN_DUTY))
@@ -290,89 +290,78 @@ class robot():
     def __init__(self, driver, start, end):
         self.driver = driver
         self.pos = start
-        self.pid = pid_speed_controller(start, end)
 
-    def set_w_speed_limit(self, v, w):
-        if (v == 0.0):
-            if (w < -MAX_W):
-                w = - MAX_W
-            elif (w > MAX_W):
-                w = MAX_W
-            return v, w
+        # Tune these only if needed
+        self.FORWARD_SPEED = 35      # percent command
+        self.SLOW_SPEED = 22         # percent command
+        self.MAX_TURN = 35           # percent command
+        self.K_TURN = 0.7            # turn gain
 
-        if (w < - MAX_W):
-            r = v / w
-            w = -MAX_W
-            v = r * w
-        if (w > MAX_W):
-            r = v / w               
-            w = MAX_W
-            v = r * w
-        return v, w
+        # If robot turns the wrong way, change this to +1
+        self.TURN_SIGN = -1
 
-    def calculate_headings(self, pos, goal, orientation):
-        orientation = math.radians(orientation)
-
-        dx = goal[0] - pos[0]
-        dy = goal[1] - pos[1]
-        l = math.sqrt((dx ** 2) + (dy ** 2))
-
-        if l <= 2.0:
-            return 0.0, 0.0
-
-        theta_line = math.atan2(dy, dx)
-        theta_offset = theta_line - orientation
-
-        # Normalize to [-pi, pi]
-        while theta_offset > math.pi:
-            theta_offset -= 2 * math.pi
-        while theta_offset < -math.pi:
-            theta_offset += 2 * math.pi
-
-        # If badly misaligned, rotate in place first.
-        if abs(theta_offset) > math.radians(35):
-            v = 0.0
-
-            if theta_offset > 0:
-                w = -MAX_W
-            else:
-                w = MAX_W
-
-            return v, w
-
-        # If roughly aligned, move forward and steer.
-        v_limit = self.pid.pid_calculate(pos)
-
-        # IMPORTANT: no negative sign here
-        w = -(2 * v_limit * math.sin(theta_offset)) / max(l, 0.001)
-
-        v, w = self.set_w_speed_limit(v_limit, w)
-        return v, w
-
-    def calc_v_goals(self, v,w):
-        v_right = ( (w * BOT_WIDTH_CM) + 2 * v) / 2
-        v_left = 2 * v - v_right
-        return v_right, v_left
-
-    def calculate_actuator_speeds(self, v,w):
-        vr, vl = self.calc_v_goals(v,w)
-        dc_r = DC_SCALE * vr
-        dc_l = DC_SCALE *vl
-        return dc_r, dc_l
+    def normalize_angle_deg(self, angle):
+        while angle > 180:
+            angle -= 360
+        while angle < -180:
+            angle += 360
+        return angle
 
     def run(self, curr_pos, goal_pos, orientation):
-        self.pid.goal_pos = goal_pos
-        v, w = self.calculate_headings(curr_pos, goal_pos, orientation)
-        dc_r, dc_l = self.calculate_actuator_speeds(v, w)
+        dx = goal_pos[0] - curr_pos[0]
+        dy = goal_pos[1] - curr_pos[1]
 
-        print("CTRL:", "pos=", curr_pos, "goal=", goal_pos, "yaw=", orientation,
-            "v=", v, "w=", w, "R=", dc_r, "L=", dc_l)
+        dist = math.sqrt(dx * dx + dy * dy)
 
-        self.driver.set_speeds(dc_r, dc_l)
+        if dist <= 4.0:
+            print("AT GOAL: stopping")
+            self.driver.stop()
+            return
+
+        desired_heading = math.degrees(math.atan2(dy, dx))
+        heading_error = self.normalize_angle_deg(desired_heading - orientation)
+
+        # Turn command
+        turn = self.K_TURN * heading_error
+        turn = max(-self.MAX_TURN, min(self.MAX_TURN, turn))
+        turn = self.TURN_SIGN * turn
+
+        # Forward speed logic
+        abs_error = abs(heading_error)
+
+        if abs_error > 100:
+            # Very wrong direction: mostly rotate, little/no forward
+            forward = 0
+        elif abs_error > 45:
+            # Moderately wrong: slow forward while turning
+            forward = self.SLOW_SPEED
+        else:
+            # Mostly aligned: drive normally
+            forward = self.FORWARD_SPEED
+
+        right_cmd = forward + turn
+        left_cmd = forward - turn
+
+        right_cmd = max(-100, min(100, right_cmd))
+        left_cmd = max(-100, min(100, left_cmd))
+
+        print(
+            "CTRL:",
+            "pos=", curr_pos,
+            "goal=", goal_pos,
+            "yaw=", orientation,
+            "desired=", desired_heading,
+            "err=", heading_error,
+            "F=", forward,
+            "T=", turn,
+            "R=", right_cmd,
+            "L=", left_cmd
+        )
+
+        self.driver.set_speeds(right_cmd, left_cmd)
 
     def emergency_stop(self):
         self.driver.stop()
-
 
 # ----------------- MAIN LOOP -----------------
 if R_ID == 0:
