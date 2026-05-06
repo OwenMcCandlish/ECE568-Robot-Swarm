@@ -11,8 +11,8 @@ import path_planner
 # Tuning constants
 # =========================
 
-ARENA_MIN_CM = 0.0
-ARENA_MAX_CM = 82.0
+ARENA_MIN_CM = 2.0
+ARENA_MAX_CM = 80.0
 
 WAYPOINT_RADIUS_CM = 6.0
 FINAL_RADIUS_CM = 8.0

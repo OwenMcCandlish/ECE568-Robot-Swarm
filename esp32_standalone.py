@@ -298,7 +298,7 @@ class robot():
         self.K_TURN = 0.7            # turn gain
 
         # If robot turns the wrong way, change this to +1
-        self.TURN_SIGN = -1
+        self.TURN_SIGN = 1
 
     def normalize_angle_deg(self, angle):
         while angle > 180:
