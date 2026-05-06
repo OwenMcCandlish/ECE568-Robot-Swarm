@@ -59,64 +59,6 @@ class Vision:
         self.show_feed = show_feed
         self.ARROW_LENGTH = 50
 
-    def _smooth_angle_deg(self, old_deg, new_deg, alpha):
-        old_rad = math.radians(old_deg)
-        new_rad = math.radians(new_deg)
-
-        old_x, old_y = math.cos(old_rad), math.sin(old_rad)
-        new_x, new_y = math.cos(new_rad), math.sin(new_rad)
-
-        blended_x = (1 - alpha) * old_x + alpha * new_x
-        blended_y = (1 - alpha) * old_y + alpha * new_y
-
-        return math.degrees(math.atan2(blended_y, blended_x))
-
-    def _update_arena_homography(self, results):
-        """
-        Uses corner AprilTags 10, 11, 12, 13 to build a pixel-to-cm transform.
-        Arena is 82 cm x 82 cm.
-        """
-        for r in results:
-            if r.tag_id in self.CORNER_TAG_IDS:
-                self.corner_centers[r.tag_id] = np.array(r.center, dtype=np.float32)
-
-        required = [10, 11, 12, 13]
-        if not all(tag_id in self.corner_centers for tag_id in required):
-            self.H_IMAGE_TO_WORLD = None
-            return False
-
-        image_points = np.array([
-            self.corner_centers[10],  # top-left
-            self.corner_centers[11],  # top-right
-            self.corner_centers[12],  # bottom-right
-            self.corner_centers[13],  # bottom-left
-        ], dtype=np.float32)
-
-        world_points = np.array([
-            [0.0, self.ARENA_SIZE_CM],               # 10: top-left -> x=0, y=82
-            [self.ARENA_SIZE_CM, self.ARENA_SIZE_CM],# 11: top-right -> x=82, y=82
-            [self.ARENA_SIZE_CM, 0.0],               # 12: bottom-right -> x=82, y=0
-            [0.0, 0.0],                              # 13: bottom-left -> x=0, y=0
-        ], dtype=np.float32)
-
-        self.H_IMAGE_TO_WORLD, _ = cv2.findHomography(image_points, world_points)
-        return self.H_IMAGE_TO_WORLD is not None
-
-    def _pixel_to_world_cm(self, x_px, y_px):
-        """
-        Converts image pixel coordinate to real arena cm coordinate.
-        """
-        if self.H_IMAGE_TO_WORLD is None:
-            return None
-
-        point = np.array([[[x_px, y_px]]], dtype=np.float32)
-        transformed = cv2.perspectiveTransform(point, self.H_IMAGE_TO_WORLD)
-
-        x_cm = float(transformed[0][0][0])
-        y_cm = float(transformed[0][0][1])
-
-        return x_cm, y_cm
-
     def locate_robots(self) -> tuple[list[tuple[int, int]], list[int]]:
         frame_rgb = self.picam2.capture_array()
         gray = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
@@ -288,6 +230,65 @@ class Vision:
                 raise KeyboardInterrupt
 
         return cur_locs, cur_headings
+
+    def _smooth_angle_deg(self, old_deg, new_deg, alpha):
+        old_rad = math.radians(old_deg)
+        new_rad = math.radians(new_deg)
+
+        old_x, old_y = math.cos(old_rad), math.sin(old_rad)
+        new_x, new_y = math.cos(new_rad), math.sin(new_rad)
+
+        blended_x = (1 - alpha) * old_x + alpha * new_x
+        blended_y = (1 - alpha) * old_y + alpha * new_y
+
+        return math.degrees(math.atan2(blended_y, blended_x))
+
+    def _update_arena_homography(self, results):
+        """
+        Uses corner AprilTags 10, 11, 12, 13 to build a pixel-to-cm transform.
+        Arena is 82 cm x 82 cm.
+        """
+        for r in results:
+            if r.tag_id in self.CORNER_TAG_IDS:
+                self.corner_centers[r.tag_id] = np.array(r.center, dtype=np.float32)
+
+        required = [10, 11, 12, 13]
+        if not all(tag_id in self.corner_centers for tag_id in required):
+            self.H_IMAGE_TO_WORLD = None
+            return False
+
+        image_points = np.array([
+            self.corner_centers[10],  # top-left
+            self.corner_centers[11],  # top-right
+            self.corner_centers[12],  # bottom-right
+            self.corner_centers[13],  # bottom-left
+        ], dtype=np.float32)
+
+        world_points = np.array([
+            [0.0, self.ARENA_SIZE_CM],               # 10: top-left -> x=0, y=82
+            [self.ARENA_SIZE_CM, self.ARENA_SIZE_CM],# 11: top-right -> x=82, y=82
+            [self.ARENA_SIZE_CM, 0.0],               # 12: bottom-right -> x=82, y=0
+            [0.0, 0.0],                              # 13: bottom-left -> x=0, y=0
+        ], dtype=np.float32)
+
+        self.H_IMAGE_TO_WORLD, _ = cv2.findHomography(image_points, world_points)
+        return self.H_IMAGE_TO_WORLD is not None
+
+    def _pixel_to_world_cm(self, x_px, y_px):
+        """
+        Converts image pixel coordinate to real arena cm coordinate.
+        """
+        if self.H_IMAGE_TO_WORLD is None:
+            return None
+
+        point = np.array([[[x_px, y_px]]], dtype=np.float32)
+        transformed = cv2.perspectiveTransform(point, self.H_IMAGE_TO_WORLD)
+
+        x_cm = float(transformed[0][0][0])
+        y_cm = float(transformed[0][0][1])
+
+        return x_cm, y_cm
+
 
     def close(self):
         self.picam2.stop()
