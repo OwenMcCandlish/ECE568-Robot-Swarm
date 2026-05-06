@@ -209,18 +209,47 @@ class Vision:
                 "heading_deg": float(angle_deg)
             }
 
-            # Draw heading arrow and robot text
-            sa_rad = math.radians(angle_deg)
-            end_x = int(center_int[0] + self.ARROW_LENGTH * math.cos(sa_rad))
-            end_y = int(center_int[1] + self.ARROW_LENGTH * math.sin(sa_rad))
+           # Draw heading arrow correctly by projecting world heading back into image pixels
+            if arena_ready and self.H_IMAGE_TO_WORLD is not None:
+                H_WORLD_TO_IMAGE = np.linalg.inv(self.H_IMAGE_TO_WORLD)
+
+                arrow_len_cm = 12.0
+                sa_rad = math.radians(angle_deg)
+
+                start_world = np.array([[[x_world, y_world]]], dtype=np.float32)
+                end_world = np.array([[
+                    [
+                        x_world + arrow_len_cm * math.cos(sa_rad),
+                        y_world + arrow_len_cm * math.sin(sa_rad)
+                    ]
+                ]], dtype=np.float32)
+
+                start_img = cv2.perspectiveTransform(start_world, H_WORLD_TO_IMAGE)
+                end_img = cv2.perspectiveTransform(end_world, H_WORLD_TO_IMAGE)
+
+                start_pt = (
+                    int(start_img[0][0][0]),
+                    int(start_img[0][0][1])
+                )
+                end_pt = (
+                    int(end_img[0][0][0]),
+                    int(end_img[0][0][1])
+                )
+            else:
+                sa_rad = math.radians(angle_deg)
+                start_pt = center_int
+                end_pt = (
+                    int(center_int[0] + self.ARROW_LENGTH * math.cos(sa_rad)),
+                    int(center_int[1] + self.ARROW_LENGTH * math.sin(sa_rad))
+                )
 
             cv2.arrowedLine(
-                frame,
-                center_int,
-                (end_x, end_y),
-                (0, 255, 255),
-                2,
-                tipLength=0.25
+                    frame,
+                    start_pt,
+                    end_pt,
+                    (0, 255, 255),
+                    2,
+                    tipLength=0.25
             )
 
             cv2.putText(
@@ -305,282 +334,20 @@ class Vision:
 # Standalone Debug Tracker
 # =========================
 def run_standalone():
-    # Configuration
-    HEADING_OFFSET_DEG = 180
-    TAG_FAMILY = "tag36h11"
-    SMOOTHING_ALPHA = 0.2
-    ARROW_LENGTH = 50
-    CSV_FILE = "apriltag_log.csv"
-
-    ARENA_SIZE_CM = 82.0
-    CORNER_TAG_IDS = {
-        10: "top_left",
-        11: "top_right",
-        12: "bottom_right",
-        13: "bottom_left",
-    }
-
-    FRAME_WIDTH = 640
-    FRAME_HEIGHT = 480
-
-    # AprilTag detector
-    detector = Detector(
-        families=TAG_FAMILY,
-        nthreads=1,
-        quad_decimate=1.0,
-        quad_sigma=0.0,
-        refine_edges=1,
-        decode_sharpening=0.25
-    )
-
-    # Raspberry Pi Camera setup
-    picam2 = Picamera2()
-
-    config_cam = picam2.create_preview_configuration(
-        main={
-            "size": (FRAME_WIDTH, FRAME_HEIGHT),
-            "format": "RGB888"
-        }
-    )
-
-    picam2.configure(config_cam)
-    picam2.start()
-    time.sleep(1)
-
-    # CSV setup
-    csv_exists = os.path.exists(CSV_FILE)
-    csv_file = open(CSV_FILE, mode="a", newline="")
-    csv_writer = csv.writer(csv_file)
-
-    if not csv_exists:
-        csv_writer.writerow(["timestamp", "tag_id", "x_px", "y_px", "heading_deg"])
-
-    # State for smoothing
-    smoothed_states = {}
-    
-    corner_centers = {}
-    H_IMAGE_TO_WORLD = None
-
-    def smooth_angle_deg(old_deg, new_deg, alpha):
-        old_rad = math.radians(old_deg)
-        new_rad = math.radians(new_deg)
-
-        old_x, old_y = math.cos(old_rad), math.sin(old_rad)
-        new_x, new_y = math.cos(new_rad), math.sin(new_rad)
-
-        blended_x = (1 - alpha) * old_x + alpha * new_x
-        blended_y = (1 - alpha) * old_y + alpha * new_y
-
-        return math.degrees(math.atan2(blended_y, blended_x))
+    vision = Vision(show_feed=True)
 
     try:
         while True:
-            # Picamera2 gives RGB frame
-            frame_rgb = picam2.capture_array()
+            cur_locs, cur_headings = vision.locate_robots()
 
-            # AprilTag detection works on grayscale
-            gray = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
+            if cur_locs:
+                print("Robots:", cur_locs, "Headings:", cur_headings)
 
-            # Convert RGB to BGR only for OpenCV display/drawing colors
-            frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
-
-            results = detector.detect(gray)
-
-            # --- Homography Update ---
-            for r in results:
-                if r.tag_id in CORNER_TAG_IDS:
-                    corner_centers[r.tag_id] = np.array(r.center, dtype=np.float32)
-
-            required = [10, 11, 12, 13]
-            if all(tag_id in corner_centers for tag_id in required):
-                image_points = np.array([
-                    corner_centers[10],
-                    corner_centers[11],
-                    corner_centers[12],
-                    corner_centers[13],
-                ], dtype=np.float32)
-                world_points = np.array([
-                    [0.0, ARENA_SIZE_CM],
-                    [ARENA_SIZE_CM, ARENA_SIZE_CM],
-                    [ARENA_SIZE_CM, 0.0],
-                    [0.0, 0.0],
-                ], dtype=np.float32)
-                H_IMAGE_TO_WORLD, _ = cv2.findHomography(image_points, world_points)
-            else:
-                H_IMAGE_TO_WORLD = None
-
-            robots_raw = {}
-            robots_smoothed = {}
-
-            timestamp = time.time()
-
-            for r in results:
-                corners = r.corners
-                center = r.center
-                tag_id = r.tag_id
-
-                corners_int = corners.astype(int)
-                center_int = tuple(center.astype(int))
-
-                # Draw tag box
-                for i in range(4):
-                    pt1 = tuple(corners_int[i])
-                    pt2 = tuple(corners_int[(i + 1) % 4])
-                    cv2.line(frame, pt1, pt2, (255, 0, 0), 2)
-
-                # Draw corner points
-                for pt in corners_int:
-                    cv2.circle(frame, tuple(pt), 5, (0, 255, 0), -1)
-
-                # Draw center
-                cv2.circle(frame, center_int, 6, (0, 0, 255), -1)
-
-                if tag_id in CORNER_TAG_IDS:
-                    cv2.putText(frame, f"Corner {tag_id}", (center_int[0] + 10, center_int[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2)
-                    continue
-
-                # Orientation from bottom-center to top-center
-                bottom_center_x = (corners[0][0] + corners[1][0]) / 2.0
-                bottom_center_y = (corners[0][1] + corners[1][1]) / 2.0
-                top_center_x = (corners[3][0] + corners[2][0]) / 2.0
-                top_center_y = (corners[3][1] + corners[2][1]) / 2.0
-
-                if H_IMAGE_TO_WORLD is not None:
-                    # Convert to world to compute correct angle
-                    bottom_pt = np.array([[[bottom_center_x, bottom_center_y]]], dtype=np.float32)
-                    top_pt = np.array([[[top_center_x, top_center_y]]], dtype=np.float32)
-                    
-                    bottom_world = cv2.perspectiveTransform(bottom_pt, H_IMAGE_TO_WORLD)
-                    top_world = cv2.perspectiveTransform(top_pt, H_IMAGE_TO_WORLD)
-                    
-                    dx = float(top_world[0][0][0]) - float(bottom_world[0][0][0])
-                    dy = float(top_world[0][0][1]) - float(bottom_world[0][0][1])
-                else:
-                    dx = top_center_x - bottom_center_x
-                    dy = top_center_y - bottom_center_y
-
-                angle_rad = math.atan2(dy, dx)
-                angle_deg = math.degrees(angle_rad) + HEADING_OFFSET_DEG
-
-                while angle_deg > 180:
-                    angle_deg -= 360
-
-                while angle_deg < -180:
-                    angle_deg += 360
-                
-                if H_IMAGE_TO_WORLD is not None:
-                    point = np.array([[[float(center[0]), float(center[1])]]], dtype=np.float32)
-                    transformed = cv2.perspectiveTransform(point, H_IMAGE_TO_WORLD)
-                    x_val = float(transformed[0][0][0])
-                    y_val = float(transformed[0][0][1])
-                else:
-                    x_val = float(center[0])
-                    y_val = float(center[1])
-
-                robots_raw[tag_id] = {
-                    "x_px": x_val,
-                    "y_px": y_val,
-                    "heading_deg": float(angle_deg)
-                }
-
-                # Apply smoothing
-                if tag_id not in smoothed_states:
-                    smoothed_states[tag_id] = robots_raw[tag_id].copy()
-                else:
-                    smoothed_states[tag_id]["x_px"] = (
-                        (1 - SMOOTHING_ALPHA) * smoothed_states[tag_id]["x_px"]
-                        + SMOOTHING_ALPHA * robots_raw[tag_id]["x_px"]
-                    )
-                    smoothed_states[tag_id]["y_px"] = (
-                        (1 - SMOOTHING_ALPHA) * smoothed_states[tag_id]["y_px"]
-                        + SMOOTHING_ALPHA * robots_raw[tag_id]["y_px"]
-                    )
-                    smoothed_states[tag_id]["heading_deg"] = smooth_angle_deg(
-                        smoothed_states[tag_id]["heading_deg"],
-                        robots_raw[tag_id]["heading_deg"],
-                        SMOOTHING_ALPHA
-                    )
-
-                robots_smoothed[tag_id] = smoothed_states[tag_id].copy()
-
-                sx = robots_smoothed[tag_id]["x_px"]
-                sy = robots_smoothed[tag_id]["y_px"]
-                sa = robots_smoothed[tag_id]["heading_deg"]
-                sa_rad = math.radians(sa)
-
-                # Draw heading arrow using image pixel center, not cm coordinates
-                end_x = int(center_int[0] + ARROW_LENGTH * math.cos(sa_rad))
-                end_y = int(center_int[1] + ARROW_LENGTH * math.sin(sa_rad))
-
-                cv2.arrowedLine(
-                    frame,
-                    center_int,
-                    (end_x, end_y),
-                    (0, 255, 255),
-                    2,
-                    tipLength=0.25
-                )
-
-                # Draw text
-                text1 = f"ID:{tag_id}"
-                text2 = f"X:{sx:.1f} Y:{sy:.1f} cm"
-                text3 = f"A:{sa:.1f} deg"
-
-                cv2.putText(
-                    frame,
-                    text1,
-                    (center_int[0] + 10, center_int[1] - 25),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.55,
-                    (0, 0, 255),
-                    2
-                )
-
-                cv2.putText(
-                    frame,
-                    text2,
-                    (center_int[0] + 10, center_int[1]),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.55,
-                    (0, 0, 255),
-                    2
-                )
-
-                cv2.putText(
-                    frame,
-                    text3,
-                    (center_int[0] + 10, center_int[1] + 25),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.55,
-                    (0, 0, 255),
-                    2
-                )
-
-                # Log to CSV
-                csv_writer.writerow([
-                    timestamp,
-                    tag_id,
-                    robots_smoothed[tag_id]["x_px"],
-                    robots_smoothed[tag_id]["y_px"],
-                    robots_smoothed[tag_id]["heading_deg"]
-                ])
-
-            csv_file.flush()
-
-            if robots_smoothed:
-                print("Robots:", robots_smoothed)
-
-            cv2.imshow("AprilTag Robot Tracker - Raspberry Pi", frame)
-
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord("q"):
-                break
+            time.sleep(0.05)
 
     finally:
-        picam2.stop()
-        csv_file.close()
+        vision.close()
         cv2.destroyAllWindows()
-
 
 if __name__ == "__main__":
     run_standalone()
