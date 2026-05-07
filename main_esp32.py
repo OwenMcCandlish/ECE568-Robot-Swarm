@@ -5,7 +5,7 @@ import time
 import network
 
 
-R_ID = 2       # config the id of the robot
+R_ID = 0       # config the id of the robot
 
 def connect_to_wifi():
     ssid = config.WIFI_SSID
@@ -33,13 +33,14 @@ def main():
 
     # Get initial position
     while(not NET.poll()):
+        print("here")
         time.sleep_ms(50)
     (yaw, _ ), curr_pos, goal_pos = NET.recv().data
 
     ROBOT = robot.robot(DRIVER, curr_pos, goal_pos)
 
     # control loop
-    last_msg = time.time()
+    last_msg = time.ticks_ms()
     while (True):
         # Check if waypoints were sent to the ESP
         if (NET.poll()):
@@ -48,10 +49,10 @@ def main():
             print(f"Y: {yaw}. Curr pos: {curr_pos}. Goal: {goal_pos}.")
             ROBOT.run(curr_pos, goal_pos, yaw)
             print(f"robot control sent.")
-            last_msg = time.time()
+            last_msg = time.ticks_ms()
 
         # otherwise if too much time between msgs -> force stop
-        elif ((time.time() - last_msg) >= config.NET_TIMEOUT):
+        elif ((time.ticks_ms() - last_msg) >= config.NET_TIMEOUT):
             print(f"ERROR. Network timeout")
             ROBOT.emergency_stop()
         time.sleep_ms(100)

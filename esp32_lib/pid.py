@@ -2,6 +2,8 @@
 # Imports
 import config
 import time
+import math
+from collections import deque
 
 ##########################################################################################################
 # PID Controller for the Velocity Calculations
@@ -17,11 +19,11 @@ class pid_speed_controller():
 
         # previous position and the time it was taken (for velocity calculations)
         self.prev_position = start
-        self.prev_time_stamp = time.time()
+        self.prev_time_stamp = time.ticks_ms()
         self.error_sum = 0
 
         # error queue for tracking the sum of errors
-        self.error_dq = deque(maxlen=20)
+        self.error_dq = deque((), 20)
         self.v_max = config.MAX_V
 
     #########################################################################################################
@@ -38,18 +40,34 @@ class pid_speed_controller():
         e = self.distance(self.goal_pos, pos)
         if math.isinf(e):
             e = config.BOT_LENGTH_CM * 2
-        e_1 = (self.distance(pos, self.prev_position)) / (time.time() - self.prev_time_stamp) # -dx/dt
+        e_1 = (self.distance(pos, self.prev_position)) / (time.ticks_ms() - self.prev_time_stamp) # -dx/dt
         V = self.calculate_velocity(e, e_1)
         self.update(e, pos)
         return V
+
+    def sum_dq(self, dq):
+        total = 0
+        dq_len = len(dq)
+        dq_list = []
+        for _ in range(dq_len):
+            val = dq.pop()
+            dq_list.append(dq)
+            total += val
+
+        self.error_dq = deque(dq_list, 20)
+
+        return total
 
     #########################################################################################################
     # UPDATE: update the time, error sum, and the previous position (for current Velocity calculation)
     def update(self, e, pos):
         self.error_dq.append(e)                             # add the error to the queue (pop off old values)
-        self.error_sum = sum(self.error_dq)                 # error is the sum of 10 most recent errors
+
+        # error is the sum of 10 most recent errors
+        self.error_sum = self.sum_dq(self.error_dq)
+
         self.prev_position = pos
-        self.prev_time_stamp = time.time()
+        self.prev_time_stamp = time.ticks_ms()
 
     #########################################################################################################
     # CALCULATE_VELOCITY: return velocity
