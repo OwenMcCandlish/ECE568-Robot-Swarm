@@ -43,16 +43,18 @@ def main():
     while (True):
         # Check if waypoints were sent to the ESP
         if (NET.poll()):
+            print(f"Start Recv")
             (yaw, _ ), curr_pos, goal_pos = NET.recv().data
+            print(f"Y: {yaw}. Curr pos: {curr_pos}. Goal: {goal_pos}.")
             ROBOT.run(curr_pos, goal_pos, yaw)
+            print(f"robot control sent.")
             last_msg = time.time()
 
         # otherwise if too much time between msgs -> force stop
         elif ((time.time() - last_msg) >= config.NET_TIMEOUT):
             print(f"ERROR. Network timeout")
-            NET.close()
             ROBOT.emergency_stop()
-        time.sleep_ms(10)
+        time.sleep_ms(100)
 
 if __name__ == "__main__":
     main()
