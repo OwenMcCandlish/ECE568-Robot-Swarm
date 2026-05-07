@@ -4,7 +4,6 @@ import config
 import time
 import network
 
-
 R_ID = 2       # config the id of the robot
 
 def connect_to_wifi():
@@ -20,6 +19,14 @@ def connect_to_wifi():
     print("Connected to {}".format(ssid))
     print("IP Address: {}\n".format(ip_addr))
     return ip_addr
+
+
+
+
+
+"""
+Correct Main
+"""
 
 def main():
     connect_to_wifi()
@@ -53,6 +60,20 @@ def main():
             NET.close()
             ROBOT.emergency_stop()
         time.sleep_ms(10)
+
+"""
+
+
+""" Test main """
+def main():
+    # Fetch classes
+    DRIVER = motor_driver.TB6612FNG()
+    NET = esp_network.Esp32Network(R_ID)
+
+    # initialize network
+    NET.start(config.PI_IP, 60007)
+
+"""
 
 if __name__ == "__main__":
     main()
