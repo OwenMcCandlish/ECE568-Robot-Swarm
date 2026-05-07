@@ -12,12 +12,18 @@ def main():
     # Start Network
     network.start(config.NUM_DEVICES)
 
+
     # Create Paths
-    leader = vision.locate_robots()[0]
+    init_loc, init_heading = vision.locate_robots()
     follower1 = (0,0)
     follower2 = (0,0)
-    path_planner.plan_paths(leader, config.END_POINT, follower1)
+    path_planner.plan_paths(init_loc[0], config.END_POINT, follower1)
 
+    # Send initial position and goal pos
+    for i in range(len(init_loc)):
+        network.send(i, data=[(init_heading[i], 0), init_loc[i], config.END_POINT])
+
+    # Steady state
     while (True):
         # get bot positions
         cur_locs, cur_headings = vision.locate_robots()
@@ -30,7 +36,8 @@ def main():
             desired_path = path_planner.get_next_waypoints(i, cur_loc)
             next_loc = desired_path[-1] # send the last point in the desired path
 
-            network.send(i, data=[(cur_heading, 0), cur_loc, next_loc])
+            # network.send(i, data=[(cur_heading, 0), cur_loc, next_loc])
+            network.send(i, data=[(cur_heading, 0), cur_loc, config.END_POINT])
             # print(f"Corners: {}")
             # print(f"Heading: {cur_heading}, Location: {cur_loc}")
         time.sleep(0.10) # Jetson refresh rate
