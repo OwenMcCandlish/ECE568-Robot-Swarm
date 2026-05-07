@@ -24,7 +24,7 @@ MAX_E                       = 20 * MAX_V * INTERVAL                     # Distan
 
 NET_TIMEOUT                 = 2                                         # time to assume net fail & and stop bot
 
-NUM_DEVICES = 1
+NUM_DEVICES = 3
 END_POINT = (81, 81) # TODO
 
 # ROBOT START, END POINTS
@@ -40,7 +40,8 @@ R2_END      = [80,80]
 DC_SCALE = 3                    # convert pwm percent to a velocity in cm/sec
 
 # Network Parameters
-PI_IP = "192.168.137.164"
+PI_IP = "192.168.137.17"
 PI_PORT = 60007
-WIFI_SSID = "owen"
-WIFI_PWD = "190154om03"
+WIFI_SSID = "THELAZYLLAMA"
+WIFI_PWD = "pajamallama"
+
